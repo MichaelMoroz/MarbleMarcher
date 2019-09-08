@@ -21,7 +21,8 @@ extern sf::Color default_main_color;
 extern sf::Color default_hover_main_color;
 extern sf::Color default_active_main_color;
 extern float default_margin;
-extern sf::View default_view ;
+extern sf::Vector2f default_size;
+extern sf::View default_view;
 
 extern float animation_sharpness;
 extern float action_dt;
@@ -118,7 +119,7 @@ public:
 	void Move(sf::Vector2f dx);
 
 	void SetDefaultFunction(std::function<void(sf::RenderWindow * window, InputState & state)> fun);
-	void SetCallbackFunction(std::function<void(sf::RenderWindow * window, InputState & state)> fun, bool limit_repeat = false);
+	void SetCallbackFunction(std::function<void(sf::RenderWindow * window, InputState & state)> fun, bool limit_repeat = true);
 	void SetHoverFunction(std::function<void(sf::RenderWindow * window, InputState & state)> fun);
 
 
@@ -174,6 +175,7 @@ public:
 void UpdateAspectRatio(float width, float heigth);
 int AddGlobalObject(Object & a);
 Object& get_glob_obj(int id);
+bool NoObjects();
 void RemoveGlobalObject(int id);
 void RemoveAllObjects();
 void Add2DeleteQueue(int id);
@@ -315,6 +317,7 @@ inline Text::Text(T str, sf::Font & f, float size, sf::Color col)
 	text.setFont(f);
 	defaultstate.font_size = size;
 	defaultstate.color_main = col;
-
+	SetBorderColor(sf::Color::Black);
+	SetBorderWidth(2);
 	clone_states();
 }

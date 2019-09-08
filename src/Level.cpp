@@ -604,6 +604,15 @@ void All_Levels::LoadMusicFromFolder(std::string folder)
 	}
 }
 
+bool All_Levels::LevelExists(int ID)
+{
+	if (level_map.count(ID) > 0)
+	{
+		return true;
+	}
+	return false;
+}
+
 Level All_Levels::GetLevel(int ID)
 {
 	return level_map[ID];
@@ -636,7 +645,18 @@ std::map<int, Score> All_Levels::getLevelScores()
 
 sf::Music* All_Levels::GetLevelMusic(int ID)
 {
-	return music_map[level_map[ID].use_music];
+	if (music_map.count(level_map[ID].use_music) > 0)
+	{
+		return music_map[level_map[ID].use_music];
+	}
+}
+
+sf::Music* All_Levels::GetMusic(std::string music)
+{
+	if (music_map.count(music) > 0)
+	{
+		return music_map[music];
+	}
 }
 
 void All_Levels::ReloadLevels()

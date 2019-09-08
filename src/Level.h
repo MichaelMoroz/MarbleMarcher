@@ -163,6 +163,7 @@ public:
 	void LoadLevelsFromFolder(std::string folder);
 	void LoadMusicFromFolder(std::string folder);
 
+	bool LevelExists(int ID);
 	Level GetLevel(int ID);
 	int GetLevelNum();
 	std::map<int, std::string> getLevelNames();
@@ -170,6 +171,8 @@ public:
 	std::vector<int> getLevelIds();
 	std::map<int, Score> getLevelScores();
 	sf::Music* GetLevelMusic(int ID);
+
+	sf::Music * GetMusic(std::string music);
 
 	void ReloadLevels();
 

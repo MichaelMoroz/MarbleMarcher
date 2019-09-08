@@ -1,4 +1,5 @@
 #include "Shaders.h"
+bool initialized = false;
 
 ComputeShader::ComputeShader()
 {
@@ -37,7 +38,7 @@ void ComputeShader::LoadShader(const std::string file_path)
 		// Create the shaders
 		GLuint ComputeShaderID = glCreateShader(GL_COMPUTE_SHADER);
 
-		// Read the Vertex Shader code from the file
+		// Read the Compute Shader code from the file
 		std::string ComputeShaderCode = PreprocessIncludes(fs::path(file_path));
 
 		GLint Result = GL_FALSE;
@@ -146,8 +147,10 @@ void ComputeShader::setCamera(gl_camera cam)
 	setUniform("Camera.position", cam.position);
 	setUniform("Camera.resolution", cam.resolution);
 	setUniform("Camera.size", cam.size);
+	setUniform("Camera.bloomradius", cam.bloomradius);
+	setUniform("Camera.bloomtreshold", cam.bloomtreshold);
+	setUniform("Camera.bloomintensity", cam.bloomintensity);
 	setUniform("Camera.speckle", cam.speckle);
-	setUniform("Camera.stepN", cam.stepN);
 }
 
 GLuint ComputeShader::getNativeHandle()
@@ -157,10 +160,15 @@ GLuint ComputeShader::getNativeHandle()
 
 bool INIT()
 {
-	if (glewInit() != GLEW_OK) {
+	if (initialized)
+	{
+		return true;
+	}
+	if ( glewInit() != GLEW_OK) {
 		ERROR_MSG("Failed to initialize GLEW\n");
 		return false;
 	}
+	initialized = true;
 	return true;
 }
 

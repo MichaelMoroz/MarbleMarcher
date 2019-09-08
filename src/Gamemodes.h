@@ -1,13 +1,14 @@
 #pragma once
 
 #include<Overlays.h>
+#include<Scene.h>
 #include<Localization.h>
 #include<Interface.h>
-#include<Scene.h>
-#include<Settings.h>
+
 #include <AntTweakBar.h>
 
 enum GameMode {
+	FIRST_START,
 	MAIN_MENU,
 	PLAYING,
 	PAUSED,
@@ -19,6 +20,9 @@ enum GameMode {
 	MIDPOINT
 };
 
+
+
+
 //Global variables
 extern sf::Vector2i mouse_pos, mouse_prev_pos;
 extern bool all_keys[sf::Keyboard::KeyCount];
@@ -27,9 +31,6 @@ extern bool show_cheats;
 extern InputState io_state;
 
 //Constants
-extern float mouse_sensitivity;
-extern float wheel_sensitivity;
-extern float music_vol;
 extern float target_fps;
 
 extern GameMode game_mode;
@@ -41,6 +42,10 @@ void PlayLevel(Scene * scene, sf::RenderWindow * window, int level);
 
 void OpenControlMenu(Scene * scene, Overlays * overlays);
 
+void ResumeGame(sf::RenderWindow &window);
+
+void OpenPauseMenu(Scene * scene, Overlays * overlays);
+
 void OpenScreenSaver(Scene * scene, Overlays * overlays);
 
 void PlayNewGame(Scene * scene, sf::RenderWindow * window, int level);
@@ -51,12 +56,19 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays);
 void ConfirmLevelDeletion(int lvl, Scene* scene, Overlays* overlays);
 
 void ConfirmEditorExit(Scene * scene, Overlays * overlays);
-
-float GetVol();
 void LockMouse(sf::RenderWindow& window);
 void UnlockMouse(sf::RenderWindow& window);
-void PauseGame(sf::RenderWindow& window, Scene& scene);
+void PauseGame(sf::RenderWindow& window, Overlays * overlays, Scene * scene);
 int DirExists(const char *path);
+
+void FirstStart(Overlays* overlays);
+
+void SetPointers(sf::RenderWindow * w, Scene * scene, Overlays * overlays, Renderer * rd, sf::Texture * main, sf::Texture * screensht);
+void TakeScreenshot();
+
+void TW_CALL ApplySettings(void * data);
+
+void InitializeATBWindows(float * fps, float * target_fps);
 
 template < typename T > std::string num2str(const T& n)
 {
@@ -67,7 +79,3 @@ template < typename T > std::string num2str(const T& n)
 }
 
 
-class Sounds
-{
-
-};

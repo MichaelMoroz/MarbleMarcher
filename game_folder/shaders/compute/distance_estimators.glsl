@@ -10,7 +10,11 @@ uniform vec3 iMarblePos;
 uniform float iMarbleRad;
 uniform float iFlagScale;
 uniform vec3 iFlagPos;
-#define FRACTAL_ITER 16
+uniform int FRACTAL_ITER;
+uniform int MARBLE_MODE;
+uniform float time;
+
+layout(rgba8, binding = 3) uniform image2D color_flag; 
 
 ///Original MM distance estimators
 
@@ -27,6 +31,26 @@ void sierpinskiFold(inout vec4 z) {
 	z.xz -= min(z.x + z.z, 0.0);
 	z.yz -= min(z.y + z.z, 0.0);
 }
+
+// Polynomial smooth minimum by iq
+float smoothmin(float a, float b, float k) {
+  float h = clamp(0.5 + 0.5*(a-b)/k, 0.0, 1.0);
+  return mix(a, b, h) - k*h*(1.0-h);
+}
+
+/*void mengerFold(inout vec4 z) {
+	float a = smoothmin(z.x - z.y, 0.0, 0.03);
+	z.x -= a;
+	z.y += a;
+	a = smoothmin(z.x - z.z, 0.0, 0.03);
+	z.x -= a;
+	z.z += a;
+	a = smoothmin(z.y - z.z, 0.0, 0.03);
+	z.y -= a;
+	z.z += a;
+}*/
+
+
 void mengerFold(inout vec4 z) {
 	float a = min(z.x - z.y, 0.0);
 	z.x -= a;
@@ -118,25 +142,36 @@ float de_marble(vec4 p)
 
 vec4 col_marble(vec4 p) 
 {
-	vec4 col = vec4(0, 0, 0, de_sphere(p - vec4(iMarblePos, 0), iMarbleRad));
-	return vec4(col.x, col.y, col.z, de_sphere(p - vec4(iMarblePos, 0), iMarbleRad));
+	vec4 col = vec4(0.5, 0.5, 0.5, de_sphere(p - vec4(iMarblePos, 0), iMarbleRad));
+	return col;
 }
 
 float de_flag(vec4 p) 
 {
 	vec3 f_pos = iFlagPos + vec3(1.5, 4, 0)*iFlagScale;
-	float d = de_box(p - vec4(f_pos, 0), vec3(1.5, 0.8, 0.08)*iMarbleRad);
-	d = min(d, de_capsule(p - vec4(iFlagPos + vec3(0, iFlagScale*2.4, 0), 0), iMarbleRad*2.4, iMarbleRad*0.18));
+	vec4 p_s = p/iMarbleRad;
+	vec4 d_pos = p - vec4(f_pos, 0);
+	vec4 caps_pos = p - vec4(iFlagPos + vec3(0, iFlagScale*2.4, 0), 0);
+	//animated flag woooo
+	float oscillation = sin(8*p_s.x - 1*p_s.y - 20*time) + 0.4*sin(11*p_s.x + 2*p_s.y - 25*time) + 0.15*sin(20*p_s.x - 5*p_s.y - 27*time);
+	//scale the flag displacement amplitude by the distance from the flagpole
+	float d = 0.4*de_box(d_pos + caps_pos.x*vec4(0,0.02+ caps_pos.x* 0.5+0.01*oscillation,0.04*oscillation,0), vec3(1.5, 0.8, 0.005)*iMarbleRad);
+	d = min(d, de_capsule(caps_pos, iMarbleRad*2.4, iMarbleRad*0.05));
 	return d;
 }
 
 vec4 col_flag(vec4 p) 
 {
 	vec3 f_pos = iFlagPos + vec3(1.5, 4, 0)*iFlagScale;
-	float d1 = de_box(p - vec4(f_pos, 0), vec3(1.5, 0.8, 0.08)*iMarbleRad);
+	vec4 d_pos = p - vec4(f_pos, 0);
+	vec3 fsize = vec3(1.5, 0.8, 0.08)*iMarbleRad;
+	float d1 = de_box(d_pos, fsize);
 	float d2 = de_capsule(p - vec4(iFlagPos + vec3(0, iFlagScale*2.4, 0), 0), iMarbleRad*2.4, iMarbleRad*0.18);
 	if (d1 < d2) {
-		return vec4(1.0, 0.2, 0.1, d1);
+		vec2 color_flag_s = vec2(imageSize(color_flag));
+		vec2 texture_coord = d_pos.xy*vec2(0.45,-0.4)/fsize.xy + vec2(0.45,0.5);
+		vec3 flagcolor = imageLoad(color_flag, ivec2(texture_coord*color_flag_s)).xyz;
+		return vec4(flagcolor, d1);
 	} else {
 		return vec4(0.9, 0.9, 0.1, d2);
 	}

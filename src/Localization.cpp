@@ -94,6 +94,7 @@ void Localization::LoadLocalFromFile(fs::path path)
 
 	locales[lang] = local;
 	fonts[lang] = fontmap;
+	languages.push_back(lang);
 }
 
 void Localization::SetLanguage(std::string lang)
@@ -101,10 +102,33 @@ void Localization::SetLanguage(std::string lang)
 	cur_language = lang;
 }
 
+std::vector<std::string> Localization::GetLanguages()
+{
+	return languages;
+}
+
 std::wstring Localization::operator[](std::string str)
 {
-	return locales[cur_language][str];
+	if (locales[cur_language].count(str) != 0)
+	{
+		return locales[cur_language][str];
+	}
+	else //if no string found
+	{
+		return utf8_to_wstring(str);
+	}
 }
+
+std::string Localization::str(std::string str)
+{
+	return tostring(this->operator[](str));
+}
+
+const char* Localization::cstr(std::string str)
+{
+	return tostring(this->operator[](str)).c_str();
+}
+
 
 sf::Font & Localization::operator()(std::string str)
 {

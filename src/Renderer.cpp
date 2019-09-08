@@ -1,32 +1,46 @@
 #include "Renderer.h"
+#include "Renderer.h"
+#include "Renderer.h"
 
-Renderer::Renderer(int w, int h,std::string config_file)
+
+Renderer::Renderer(int w, int h, std::string config_file)
 {
+	LoadConfigs(config_file);
 	Initialize(w, h, config_file);
+}
+
+Renderer::Renderer(std::string config_file)
+{
+	LoadConfigs(config_file);
 }
 
 Renderer::Renderer()
 {
-	main_textures.clear();
-	shader_textures.clear();
-	global_size.clear();
+
+}
+
+void Renderer::LoadConfigs(std::string config_file)
+{
+	std::vector<fs::path> configs = GetFilesInFolder(fs::path(config_file).parent_path().string(), ".cfg");
+	for (auto &file : configs)
+	{
+		rendering_configurations.push_back(file.filename().string());
+	}
+	config_folder = fs::path(config_file).parent_path().string();
 }
 
 void Renderer::Initialize(int w, int h, std::string config_f)
 {
-	//glDeleteTextures(main_textures.size(), main_textures.data());
 	main_textures.clear();
-
-	for (int i = 0; i < shader_textures.size(); i++)
-	{
-	//	glDeleteTextures(shader_textures[i].size(), shader_textures[i].data());
-	}
 	shader_textures.clear();
-
 	global_size.clear();
+	shader_pipeline.clear();
 
 	width = w;
 	height = h;
+
+	variables["width"] = width;
+	variables["height"] = height;
 	camera.SetResolution(vec2(w, h));
 	camera.SetAspectRatio((float)w / (float)h);
 
@@ -45,9 +59,7 @@ void Renderer::Initialize(int w, int h, std::string config_f)
 	int element = -1;
 	int cur_shader = 0;
 
-	std::map<std::string, float> variables;
-	variables["width"] = width;
-	variables["height"] = height;
+	
 
 	std::vector<GLuint> stage_textures;
 	std::string shader_file;
@@ -106,6 +118,8 @@ void Renderer::ReInitialize(int w, int h)
 
 	width = w;
 	height = h;
+	variables["width"] = width;
+	variables["height"] = height;
 	camera.SetResolution(vec2(w, h));
 	camera.SetAspectRatio((float)w / (float)h);
 
@@ -123,10 +137,6 @@ void Renderer::ReInitialize(int w, int h)
 
 	int element = -1;
 	int cur_shader = 0;
-
-	std::map<std::string, float> variables;
-	variables["width"] = width;
-	variables["height"] = height;
 
 	std::vector<GLuint> stage_textures;
 	std::string shader_file;
@@ -188,6 +198,27 @@ void Renderer::LoadShader(std::string shader_file)
 	shader_pipeline.push_back(ComputeShader(shader_file));
 }
 
+std::vector<std::string> Renderer::GetConfigurationsList()
+{
+	return rendering_configurations;
+}
+
+std::string Renderer::GetConfigFolder()
+{
+	return config_folder;
+}
+
+void Renderer::LoadExternalTextures(std::string texture_folder)
+{
+	std::vector<fs::path> images = GetFilesInFolder(texture_folder, ".png");
+	for (auto &path : images)
+	{
+		sf::Texture textr; 
+		textr.loadFromFile(path.string());
+		input_textures.push_back(textr);
+	}
+}
+
 void Renderer::Render()
 {
 	int stages = global_size.size();
@@ -210,10 +241,15 @@ void Renderer::Render()
 			glBindImageTexture(tex_id++, shader_textures[i][j], 0, GL_FALSE, 0, GL_READ_WRITE, (i == stages-1)?GL_RGBA8:GL_RGBA32F);
 		}
 
-
+		//global textures
 		for (int j = 0; j < main_textures.size(); j++)
 		{
 			glBindImageTexture(tex_id++, main_textures[j], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+		}
+
+		for (auto &extr_text : input_textures)
+		{
+			glBindImageTexture(tex_id++, extr_text.getNativeHandle(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
 		}
 		
 		shader_pipeline[i].setCamera(camera.GetGLdata());

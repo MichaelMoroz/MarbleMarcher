@@ -20,12 +20,14 @@
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <Eigen/Dense>
-
+#include<Settings.h>
 
 #define MAX_DIST 20.f
 #define MAX_MARCHES 1000
 #define MIN_DIST 1e-4f
 #define FOCAL_DIST 1.73205080757
+
+extern sf::Music *current_music;
 
 class Scene {
 public:
@@ -54,9 +56,11 @@ public:
   Level           level_copy;
   All_Levels	  levels;
 
+  bool PlayNext;
   bool PBR_Enabled;
   bool Refl_Refr_Enabled;
   bool Shadows_Enabled;
+  bool Fog_Enabled;
   int Fractal_Iterations;
   float camera_size;
   float free_camera_speed;
@@ -64,12 +68,21 @@ public:
   Eigen::Vector3f LIGHT_DIRECTION;
   float PBR_METALLIC;
   float PBR_ROUGHNESS;
+
+  float gamma_material;
+  float gamma_sky;
+  float gamma_camera;
+
   std::string original_level_name;
 
   float           marble_rad;
   Eigen::Vector3f marble_pos;
   Eigen::Vector3f marble_vel;
   Eigen::Matrix3f marble_mat;
+
+  void SetCurrentMusic(sf::Music * new_music);
+
+  void StopMusic();
 
   Scene(sf::Music* level_music);
 
@@ -78,8 +91,8 @@ public:
   void SetMarbleScale(float r);
   void SetFlag(float x, float y, float z);
   void SetMode(CamMode mode);
+  void SetResolution(int x, int y);
   void SetExposure(float e) { exposure = e; }
-  void SetResolution(sf::Shader& shader, int x, int y);
   void SetWindowResolution(int x, int y);
   void EnbaleCheats() { enable_cheats = true; }
   Eigen::Vector3f GetVelocity();
@@ -148,6 +161,17 @@ public:
   Eigen::Vector3f MouseRayCast(int mousex, int mousey, float min_dist = MIN_DIST);
   Eigen::Vector3f RayMarch(const Eigen::Vector3f& pt, const Eigen::Vector3f& ray, float min_dist = MIN_DIST);
 
+  sf::Sound sound_goal;
+  sf::SoundBuffer buff_goal;
+  sf::Sound sound_bounce1;
+  sf::SoundBuffer buff_bounce1;
+  sf::Sound sound_bounce2;
+  sf::SoundBuffer buff_bounce2;
+  sf::Sound sound_bounce3;
+  sf::SoundBuffer buff_bounce3;
+  sf::Sound sound_shatter;
+  sf::SoundBuffer buff_shatter;
+
 protected:
   void SetLevel(int level);
 
@@ -160,6 +184,7 @@ protected:
   void MakeCameraRotation();
 
 private:
+  float           time;
   int             cur_level;
   bool            is_fullrun;
   bool            intro_needs_snap;
@@ -188,16 +213,7 @@ private:
   int             sum_time;
   float           exposure;
 
-  sf::Sound sound_goal;
-  sf::SoundBuffer buff_goal;
-  sf::Sound sound_bounce1;
-  sf::SoundBuffer buff_bounce1;
-  sf::Sound sound_bounce2;
-  sf::SoundBuffer buff_bounce2;
-  sf::Sound sound_bounce3;
-  sf::SoundBuffer buff_bounce3;
-  sf::Sound sound_shatter;
-  sf::SoundBuffer buff_shatter;
+
 
   sf::Music* music;
 

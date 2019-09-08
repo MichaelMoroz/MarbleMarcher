@@ -47,8 +47,8 @@ All credit goes to [HackerPoet](https://github.com/HackerPoet) (aka [CodeParade]
 - ingame statistics added (marble speed, ground/air state, ...). Press `o` to toggle.
 - AntTweakBar editor added. Press `F4` to toggle.
 - Level Editor and custom level support
-![Editor](https://github.com/MichaelMoroz/MarbleMarcher/blob/master/doc/EDITOR.PNG)
-![Levels](https://github.com/MichaelMoroz/MarbleMarcher/blob/master/doc/LEVELS.PNG)
+![Editor](https://github.com/WAUthethird/Marble-Marcher-Community-Edition/blob/development/doc/EDITOR.PNG)
+![Levels](https://github.com/WAUthethird/Marble-Marcher-Community-Edition/blob/development/doc/LEVELS.PNG)
 
 
 ## Proposed Changes
@@ -90,6 +90,8 @@ Though Marble Marcher CE is a largely finished game, there are still several imp
 * [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page)
 * [SFML 2.5.0](https://www.sfml-dev.org)
 * [AntTweakBar](http://anttweakbar.sourceforge.net/)
+* [GLEW](http://glew.sourceforge.net/)
+* [GLM](https://glm.g-truc.net/)
 * [CMake](https://cmake.org/)
 * [OpenAL](https://www.openal.org/) (in case you get an "OpenAL DLL not found" error while trying to run the software, seems to be Windows-specific)
 ### MacOS
@@ -103,7 +105,7 @@ The version of SFML required is 2.5.1 or newer. It has come to my attention that
 Alternatively, [vcpkg](https://github.com/Microsoft/vcpkg) can be used though it is unsupported:
 
 `vcpkg install cmake eigen3 sfml anttweakbar`
-r
+
 It may also be possible to use MacPorts which is also unsupported and untested.
 ### Arch Linux
 `sudo pacman -S eigen sfml anttweakbar git cmake make`

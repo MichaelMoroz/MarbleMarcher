@@ -23,6 +23,7 @@ add_library(MarbleMarcherSources
   Localization.cpp
 
   Settings.h
+  Settings.cpp
 
   Gamemodes.h
   Gamemodes.cpp
@@ -38,4 +39,7 @@ add_library(MarbleMarcherSources
   
   ExprParser.h
   ExprParser.cpp
+  
+  SoundSystem.h
+  SoundSystem.cpp
 )

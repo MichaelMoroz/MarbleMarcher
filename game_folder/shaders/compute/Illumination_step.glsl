@@ -1,5 +1,4 @@
 #version 430
-//4*4 ray bundle
 #define group_size 8
 #define block_size 64
 
@@ -16,6 +15,7 @@ shared vec4 de_sph[group_size][group_size];
 
 ///Half-resolution illumination step
 
+
 void main() {
 
 	ivec2 global_pos = ivec2(gl_GlobalInvocationID.xy);
@@ -27,13 +27,12 @@ void main() {
 	
 	ivec2 prev_pos = min(ivec2((vec2(global_pos)/step_scale) + 0.5),ivec2(pimg_size)-1);
 	
-	vec4 sph = imageLoad(DE_input, prev_pos);
-	
 	ray rr = get_ray(vec2(global_pos)/img_size);
 	vec4 pos = vec4(rr.pos,0);
 	vec4 dir = vec4(rr.dir,0);
 	vec4 var = vec4(0);
-	
+		
+	vec4 sph = imageLoad(DE_input, prev_pos);
 	float td = dot(dir.xyz, sph.xyz - pos.xyz);//traveled distance
 	
 	pos = sph;
@@ -43,13 +42,13 @@ void main() {
 	
 	if(pos.w < max(2*fovray*td, MIN_DIST) && SHADOWS_ENABLED)
 	{
-		vec4 norm = calcNormal(pos.xyz, td*fovray/8); 
+		vec4 norm = calcNormal(pos.xyz, max(2*fovray*td, MIN_DIST)); 
 		norm.xyz = normalize(norm.xyz);
-		pos.xyz += norm.xyz*5*td*fovray;
-		illum.x = shadow_march(pos, normalize(vec4(LIGHT_DIRECTION,0)), MAX_DIST, 0.08);
+		pos.xyz += norm.xyz*max(2*fovray*td, MIN_DIST);
+		illum.x = shadow_march(pos, normalize(vec4(LIGHT_DIRECTION,0)), MAX_DIST, LIGHT_ANGLE);
 		
 		//illum.y = ambient_occlusion(pos, norm);
 	}
-	
+	illum.w = td;
 	imageStore(illumination, global_pos, illum);	 
 }

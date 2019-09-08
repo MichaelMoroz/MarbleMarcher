@@ -14,7 +14,8 @@ sf::Color default_main_color = sf::Color(64, 64, 64, 128);
 sf::Color default_hover_main_color = sf::Color(200, 128, 128, 128);
 sf::Color default_active_main_color = sf::Color(255, 128, 128, 255);
 float default_margin =0;
-sf::View default_view = sf::View(sf::FloatRect(0, 0, 1920, 1080));
+sf::Vector2f default_size = sf::Vector2f(1920, 1080);
+sf::View default_view = sf::View(sf::FloatRect(0, 0, default_size.x, default_size.y));
 
 float animation_sharpness = 5.f;
 float action_dt = 0.3;
@@ -77,7 +78,7 @@ Object& get_glob_obj(int id)
 
 void UpdateAspectRatio(float width, float heigth)
 {
-	sf::Vector2f size = sf::Vector2f(default_view.getSize().x, default_view.getSize().x * heigth / width);
+	sf::Vector2f size = sf::Vector2f(default_size.x * std::max(1.f, (width / heigth) * (default_size.y / default_size.x)), default_size.x * std::max(default_size.y / default_size.x, heigth / width));
 	default_view.reset(sf::FloatRect(sf::Vector2f(0, 0), size));
 }
 
@@ -108,6 +109,15 @@ int z_val(int id)
 {
 	std::vector<int>::iterator it = std::find(z_value.begin(), z_value.end(), id);
 	return std::distance(z_value.begin(), it);
+}
+
+bool NoObjects()
+{
+	if (global_objects.size() != 0)
+	{
+		return false;
+	}
+	return true;
 }
 
 void RemoveGlobalObject(int id)
@@ -157,6 +167,7 @@ void UpdateAllObjects(sf::RenderWindow * window, InputState& state)
 	{
 		if (global_objects.count(z) != 0) 
 		{
+			global_objects[z].get()->used_view = default_view;
 			global_objects[z].get()->Update(window, state);
 		}
 	}
@@ -560,13 +571,13 @@ void Box::Draw(sf::RenderWindow * window, InputState& state)
 	}
 
 	sf::Vector2f thisone = this->used_view.getSize();
-	sf::Vector2f default_size = default_view.getSize();
+	sf::Vector2f view_size = default_view.getSize();
 	sf::View gview = window->getView();
 	sf::FloatRect global_view = sf::FloatRect(gview.getCenter() - gview.getSize()*0.5f, gview.getSize());
 	sf::FloatRect this_view = overlap(global_view, sf::FloatRect(curstate.position, curstate.size));
 	boxView.reset(this_view);
 	sf::FloatRect global_viewport = gview.getViewport();
-	sf::FloatRect local_viewport = sf::FloatRect(curstate.position.x / default_size.x, curstate.position.y / default_size.y, curstate.size.x / default_size.x, curstate.size.y / default_size.y);
+	sf::FloatRect local_viewport = sf::FloatRect(curstate.position.x / view_size.x, curstate.position.y / view_size.y, curstate.size.x / view_size.x, curstate.size.y / view_size.y);
 	sf::FloatRect this_viewport = overlap(global_viewport, local_viewport);
 	boxView.setViewport(this_viewport);
 
@@ -647,6 +658,7 @@ Box::Box(float x, float y, float dx, float dy, sf::Color color_main)
 	defaultstate.position.y = y;
 	defaultstate.size.x = dx;
 	defaultstate.size.y = dy;
+
 	defaultstate.color_main = ToColorF(color_main);
 	clone_states();
 }
@@ -724,7 +736,7 @@ void Text::Draw(sf::RenderWindow * window, InputState& state)
 	text.setOutlineColor(ToColor(curstate.color_border));
 
 	window->draw(text);
-	SetSize(text.getLocalBounds().width+ text.getLocalBounds().left, text.getLocalBounds().height+ text.getLocalBounds().top);
+	SetSize(text.getLocalBounds().width, text.getLocalBounds().height);
 }
 
 Text::Text(sf::Text t)
@@ -956,7 +968,7 @@ void MenuBox::CreateCallbacks()
 		//relative scroll coefficient
 		float rel_coef = (inside_size - height_1) / max_slide_scroll;
 		parent->ScrollBy(state.mouse_speed.y*rel_coef);
-	});
+	}, false);
 
 	this->SetHoverFunction([parent = this](sf::RenderWindow * window, InputState & state)
 	{
