@@ -3,11 +3,11 @@ bool initialized = false;
 
 ComputeShader::ComputeShader()
 {
-	int work_grp_cnt[3];
+	/*int work_grp_cnt[3];
 
 	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
 	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
+	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);*/
 }
 
 ComputeShader::ComputeShader(const std::string file_path)
@@ -148,9 +148,10 @@ void ComputeShader::setCamera(gl_camera cam)
 	setUniform("Camera.resolution", cam.resolution);
 	setUniform("Camera.size", cam.size);
 	setUniform("Camera.bloomradius", cam.bloomradius);
-	setUniform("Camera.bloomtreshold", cam.bloomtreshold);
 	setUniform("Camera.bloomintensity", cam.bloomintensity);
 	setUniform("Camera.speckle", cam.speckle);
+	setUniform("Camera.cross_eye", cam.cross_eye);
+	setUniform("Camera.eye_separation", cam.eye_separation);
 }
 
 GLuint ComputeShader::getNativeHandle()

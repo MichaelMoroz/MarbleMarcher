@@ -1,12 +1,13 @@
 #include "Gamemodes.h"
-#include "Gamemodes.h"
 
 
 
 //Global variables
 sf::Vector2i mouse_pos, mouse_prev_pos;
 InputState io_state;
+GamepadState gamepad_state;
 
+bool fullscreen_current = false;
 bool all_keys[sf::Keyboard::KeyCount] = { 0 };
 bool mouse_clicked = false;
 bool show_cheats = false;
@@ -16,6 +17,23 @@ bool show_cheats = false;
 float target_fps = 60.0f;
 
 GameMode game_mode = MAIN_MENU;
+
+Scene *scene_ptr;
+Overlays *overlays_ptr;
+Renderer *renderer_ptr;
+sf::RenderWindow *window;
+sf::Texture *main_txt;
+sf::Texture *screenshot_txt;
+
+void SetPointers(sf::RenderWindow *w, Scene* scene, Overlays* overlays, Renderer* rd, sf::Texture *main, sf::Texture *screensht)
+{
+	window = w;
+	scene_ptr = scene;
+	overlays_ptr = overlays;
+	renderer_ptr = rd;
+	main_txt = main;
+	screenshot_txt = screensht;
+}
 
 void OpenMainMenu(Scene * scene, Overlays * overlays)
 {
@@ -105,13 +123,14 @@ void OpenMainMenu(Scene * scene, Overlays * overlays)
 	cntrlbtn.AddObject(&button3, Object::Allign::CENTER);
 	mainmenu.AddObject(&cntrlbtn, Object::Allign::LEFT);
 
-	//Controls
+	//Credits
 	Box aboutbtn(600, 50);
 	Text button5(LOCAL["Credits"], LOCAL("default"), 40, sf::Color::White);
 	button5.SetBorderColor(sf::Color::Black);
 	aboutbtn.hoverstate.color_main = sf::Color(200, 40, 0, 255);
 	aboutbtn.SetCallbackFunction([scene, overlays](sf::RenderWindow * window, InputState & state)
 	{
+		OpenCredits(scene, overlays);
 		overlays->sound_click.play();
 	}, true);
 	aboutbtn.AddObject(&button5, Object::Allign::CENTER);
@@ -153,6 +172,72 @@ void OpenMainMenu(Scene * scene, Overlays * overlays)
 	AddGlobalObject(mainmenu);
 }
 
+
+void OpenCredits(Scene * scene, Overlays * overlays)
+{
+	RemoveAllObjects();
+	game_mode = ABOUT;
+
+	scene->SetCurrentMusic(scene->levels.GetMusic("menu.ogg"));
+	scene->SetExposure(1.0f);
+	scene->SetMode(Scene::INTRO);
+
+	sf::Vector2f wsize = default_size;
+	sf::Vector2f vsize = default_view.getSize();
+	MenuBox creditslist(wsize.x*0.95f, vsize.y*0.95f, (vsize.x - wsize.x*0.95f) / 2, vsize.y*0.025f);
+
+	//add a default callback
+	creditslist.SetDefaultFunction([scene, overlays](sf::RenderWindow * window, InputState & state)
+	{
+		if (state.keys[sf::Keyboard::Escape])
+		{
+			OpenMainMenu(scene, overlays);
+		}
+	});
+
+	creditslist.SetBackgroundColor(sf::Color(30,30,30,200));
+	//make it static
+	creditslist.static_object = true;
+
+	//TITLE
+	Text ttl(LOCAL["Credits"], LOCAL("default"), 60, sf::Color::White);
+	ttl.SetBorderColor(sf::Color::Black);
+	ttl.SetBorderWidth(4);
+	creditslist.AddObject(&ttl, Object::Allign::CENTER);
+
+	Button back(LOCAL["Back2Main"], 600, 50, 
+		[scene, overlays](sf::RenderWindow * window, InputState & state)
+		{
+		 	OpenMainMenu(scene, overlays);
+			overlays->sound_click.play();
+		},
+		sf::Color(200, 40, 0, 255), sf::Color(128, 128, 128, 128));
+	creditslist.AddObject(&back, Object::Allign::LEFT);
+
+	//Credits list
+	std::vector<std::vector<std::string>> credits_list = {
+		{"images/credits/codeparade.jpg" , "Codeparade" , "Codeparade_descr"},
+		{"images/credits/michaelmoroz.jpg" , "Michael Moroz" , "Michael_descr"},
+		{"images/credits/wauthethird.png" , "WAUthethird" , "WAU_descr"},
+		{"images/credits/Bryce.png" , "Bryce AS202313" , "Bryce_descr"} 
+	};
+
+	for (auto &str : credits_list)
+	{
+		Box credits_entry_1(wsize.x*0.95f - 60, 120);
+		credits_entry_1.SetBackgroundColor(sf::Color(128, 128, 128, 128));
+		credits_entry_1.AddObject(&Image(str[0], 116, 116), Object::Allign::LEFT);
+		Box credits_text_1(wsize.x*0.95f - 200, 116, sf::Color::Transparent);
+		credits_text_1.AddObject(&Text(LOCAL[str[1]], LOCAL("default"), 50), Object::Allign::LEFT);
+		credits_text_1.AddObject(&Box(0, 50), Object::Allign::CENTER);
+		credits_text_1.AddObject(&Text(LOCAL[str[2]], LOCAL("default"), 30), Object::Allign::LEFT);
+		credits_entry_1.AddObject(&credits_text_1, Object::Allign::LEFT);
+		creditslist.AddObject(&credits_entry_1, Object::Allign::LEFT);
+	}
+
+	AddGlobalObject(creditslist);
+}
+
 void OpenEditor(Scene * scene, Overlays * overlays, int level)
 {
 	scene->StopMusic();
@@ -182,6 +267,53 @@ void OpenControlMenu(Scene * scene, Overlays * overlays)
 {
 	RemoveAllObjects();
 	game_mode = CONTROLS;
+
+	scene->SetCurrentMusic(scene->levels.GetMusic("menu.ogg"));
+	scene->SetExposure(1.0f);
+	scene->SetMode(Scene::INTRO);
+
+	sf::Vector2f wsize = default_size;
+	sf::Vector2f vsize = default_view.getSize();
+	MenuBox controls(wsize.x*0.95f, vsize.y*0.95f, (vsize.x - wsize.x*0.95f) / 2, vsize.y*0.025f);
+
+	//add a default callback
+	controls.SetDefaultFunction([scene, overlays](sf::RenderWindow * window, InputState & state)
+	{
+		if (state.keys[sf::Keyboard::Escape])
+		{
+			OpenMainMenu(scene, overlays);
+		}
+	});
+
+	controls.SetBackgroundColor(sf::Color(30, 30, 30, 200));
+	//make it static
+	controls.static_object = true;
+
+	//TITLE
+	Text ttl(LOCAL["Controls"], LOCAL("default"), 60, sf::Color::White);
+	ttl.SetBorderColor(sf::Color::Black);
+	ttl.SetBorderWidth(4);
+	controls.AddObject(&ttl, Object::Allign::CENTER);
+
+	controls.AddObject(&Button(LOCAL["Back2Main"], 600, 50,
+		[scene, overlays](sf::RenderWindow * window, InputState & state)
+		{
+			OpenMainMenu(scene, overlays);
+			overlays->sound_click.play();
+		},
+		sf::Color(200, 40, 0, 255), sf::Color(128, 128, 128, 128)), Object::Allign::LEFT);
+
+	controls.AddObject(&Box(800, 0), Object::Allign::CENTER);
+
+
+	Text cntrl(LOCAL["DetailControls"], LOCAL("default"), 50, sf::Color::White);
+	cntrl.SetBorderColor(sf::Color::Black);
+	cntrl.SetBorderWidth(4);
+	controls.AddObject(&cntrl, Object::Allign::LEFT);
+
+	
+
+	AddGlobalObject(controls);
 }
 
 void ResumeGame(sf::RenderWindow &window)
@@ -198,7 +330,7 @@ void OpenPauseMenu(Scene * scene, Overlays * overlays)
 	scene->SetExposure(1.0f);
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
-	MenuBox pausemenu(625, 630, wsize.x*0.025, wsize.y*0.025f);
+	MenuBox pausemenu(625, 640, wsize.x*0.025, wsize.y*0.025f);
 	pausemenu.SetBackgroundColor(sf::Color(32, 32, 32, 200));
 	
 	//make the menu static
@@ -406,16 +538,14 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 	Text lvl(LOCAL["Levels"], LOCAL("default"), 60, sf::Color::White);
 	levels.AddObject(&lvl, Object::Allign::CENTER);
 	levels.AddObject(&lvlmargin, Object::Allign::CENTER);
-	Box Bk2Menu(600, 50);
-	Bk2Menu.SetBackgroundColor(sf::Color(128, 128, 128, 128));
-	Text button(LOCAL["Back2Main"], LOCAL("default"), 40, sf::Color::White);
-	Bk2Menu.hoverstate.color_main = sf::Color(200, 40, 0, 255);
-	Bk2Menu.SetCallbackFunction([scene, overlays](sf::RenderWindow * window, InputState & state)
-	{
-		OpenMainMenu(scene, overlays);
-		overlays->sound_click.play();
-	});
-	Bk2Menu.AddObject(&button, Object::Allign::CENTER);
+
+	Button Bk2Menu(LOCAL["Back2Main"], 600, 50,
+		[scene, overlays](sf::RenderWindow * window, InputState & state)
+		{
+			OpenMainMenu(scene, overlays);
+			overlays->sound_click.play();
+		},
+		sf::Color(200, 40, 0, 255), sf::Color(128, 128, 128, 128));
 	levels.AddObject(&Bk2Menu, Object::Allign::LEFT);
 
 	Box Newlvl(600, 50);
@@ -444,12 +574,13 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 		lvlbtton.SetBackgroundColor(sf::Color(128, 128, 128, 128));
 		lvlbtton.hoverstate.border_thickness = 3;
 
-		Box lvltext(500, 65);
+		Box lvltext(500, 63);
 		lvltext.SetBackgroundColor(sf::Color::Transparent);
+		lvltext.SetMargin(0);
 		Box lvltitle(500, 40);
 		lvltitle.SetBackgroundColor(sf::Color::Transparent);
-		Text lvlname(utf8_to_wstring(names[ids[i]]), LOCAL("default"), 35, sf::Color::White);
-		Text lvldescr(utf8_to_wstring(desc[ids[i]]), LOCAL("default"), 18, sf::Color::White);
+		Text lvlname(utf8_to_wstring(names[ids[i]]), LOCAL("default"), 30, sf::Color::White);
+		Text lvldescr(utf8_to_wstring(desc[ids[i]]), LOCAL("default"), 15, sf::Color::White);
 		lvlname.hoverstate.color_main = sf::Color(255, 0, 0, 255);
 		lvlname.SetCallbackFunction([scene, overlays, selected = ids[i]](sf::RenderWindow * window, InputState & state)
 		{
@@ -498,7 +629,7 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 
 		Box buttons(120, 60);
 		buttons.SetBackgroundColor(sf::Color::Transparent);
-		Box bedit(60, 60);
+		Box bedit(56, 56);
 		bedit.defaultstate.color_main = sf::Color(255, 255, 255, 255);
 		bedit.hoverstate.color_main = sf::Color(0, 255, 0, 255);
 		bedit.SetBackground(edittxt);
@@ -508,7 +639,7 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 			overlays->sound_click.play();
 		}, true);
 
-		Box bremove(60, 60);
+		Box bremove(56, 56);
 		bremove.defaultstate.color_main = sf::Color(255, 255, 255, 255);
 		bremove.hoverstate.color_main = sf::Color(255, 0, 0, 255);
 		bremove.SetBackground(removetxt);
@@ -629,13 +760,17 @@ int DirExists(const char *path) {
 
 void FirstStart(Overlays* overlays)
 {
-	TwDefine("First_launch visible=true color='0 0 0' alpha=255 size='500 200' valueswidth=300 position='500 500'");
+	TwDefine("First_launch visible=true label='First Launch'");
 	TwDefine("Statistics visible=false");
 	TwDefine("Settings visible=false");
 	game_mode = FIRST_START;
 	overlays->TWBAR_ENABLED = true;
 
 	RemoveAllObjects();
+
+	sf::VideoMode fs_size = sf::VideoMode::getDesktopMode();
+	int barPos[2] = { (fs_size.width - 600)/2 , (fs_size.height - 100.f - 200) / 2 };
+	TwSetParam(overlays_ptr->flaunch, NULL, "position", TW_PARAM_INT32, 2, barPos); 
 
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
@@ -701,23 +836,6 @@ sf::Vector2i getResolution(int i)
 	}
 }
 
-Scene *scene_ptr;
-Overlays *overlays_ptr;
-Renderer *renderer_ptr;
-sf::RenderWindow *window;
-sf::Texture *main_txt;
-sf::Texture *screenshot_txt;
-
-void SetPointers(sf::RenderWindow *w, Scene* scene, Overlays* overlays, Renderer* rd, sf::Texture *main, sf::Texture *screensht)
-{
-	window = w;
-	scene_ptr = scene;
-	overlays_ptr = overlays;
-	renderer_ptr = rd;
-	main_txt = main;
-	screenshot_txt = screensht;
-}
-
 
 void TakeScreenshot()
 {
@@ -754,9 +872,12 @@ void InitializeRendering(std::string config)
 	
 	renderer_ptr->camera.bloomintensity = SETTINGS.stg.bloom_intensity;
 	renderer_ptr->camera.bloomradius = SETTINGS.stg.bloom_radius;
-	renderer_ptr->camera.bloomtreshold = SETTINGS.stg.bloom_treshold;
+	renderer_ptr->camera.auto_exposure_speed = SETTINGS.stg.auto_exposure_speed;
+	renderer_ptr->camera.auto_exposure_target = SETTINGS.stg.auto_exposure_target;
 	renderer_ptr->camera.SetMotionBlur(SETTINGS.stg.motion_blur);
 	renderer_ptr->camera.SetFOV(SETTINGS.stg.FOV);
+	renderer_ptr->camera.cross_eye = SETTINGS.stg.cross_eye;
+	renderer_ptr->camera.eye_separation = SETTINGS.stg.eye_separation;
 	renderer_ptr->camera.SetExposure(SETTINGS.stg.exposure);
 
 	scene_ptr->Refl_Refr_Enabled = SETTINGS.stg.refl_refr;
@@ -837,8 +958,11 @@ void TW_CALL CopyStdStringToClient(std::string& destinationClientString, const s
 
 void TW_CALL ApplySettings(void *data)
 {
-	if (!window->isOpen() || SETTINGS.first_start)
+	//if window is not yet created or when the fullscreen setting is changed
+	if (!window->isOpen() || SETTINGS.stg.fullscreen != fullscreen_current)
 	{
+		fullscreen_current = SETTINGS.stg.fullscreen;
+
 		sf::VideoMode screen_size;
 		sf::Uint32 window_style;
 		bool fullscreen = SETTINGS.stg.fullscreen;
@@ -856,7 +980,7 @@ void TW_CALL ApplySettings(void *data)
 		settings.majorVersion = 4;
 		settings.minorVersion = 3;
 
-		window->create(screen_size, "Marble Marcher Community Edition", window_style, settings);
+		window->create(screen_size, "Marble Marcher: Community Edition", window_style, settings);
 		window->setVerticalSyncEnabled(SETTINGS.stg.VSYNC);
 		window->setKeyRepeatEnabled(false);
 		
@@ -909,6 +1033,41 @@ void TW_CALL InitialOK(void *data)
 	OpenMainMenu(scene_ptr, overlays_ptr);
 }
 
+int CUR_SET_BUTTON = -1;
+std::string status_text = "Nothing";
+
+void TW_CALL SetButton(void *data)
+{
+	status_text = "Waiting for a keypress";
+	CUR_SET_BUTTON = *static_cast<int*>(data);
+}
+
+void ApplyButton(int NUM, int MODE)
+{
+	if (CUR_SET_BUTTON >= 0)
+	{
+		if (CUR_SET_BUTTON < JOYSTICK_MOVE_AXIS_X && MODE == 0)//if keyboard
+		{
+			//TODO
+			CUR_SET_BUTTON = -1;
+			status_text = "Nothing";
+		}
+		else if (CUR_SET_BUTTON >= JOYSTICK_MOVE_AXIS_X && CUR_SET_BUTTON <= JOYSTICK_VIEW_AXIS_Y && MODE == 1)//if gamepad axis
+		{
+			SETTINGS.stg.control_mapping[CUR_SET_BUTTON] = NUM;
+			CUR_SET_BUTTON = -1;
+			status_text = "Nothing";
+		}
+		else if (MODE == 2)//if gamepad buttons
+		{
+			SETTINGS.stg.control_mapping[CUR_SET_BUTTON] = NUM;
+			CUR_SET_BUTTON = -1;
+			status_text = "Nothing";
+		}
+	}
+}
+
+KEYS key[num_of_keys] = { JOYSTICK_MOVE_AXIS_X, JOYSTICK_MOVE_AXIS_Y, JOYSTICK_VIEW_AXIS_X, JOYSTICK_VIEW_AXIS_Y };
 
 void InitializeATBWindows(float* fps, float *target_fps)
 {
@@ -981,46 +1140,57 @@ void InitializeATBWindows(float* fps, float *target_fps)
 
 	TwAddVarRW(overlays_ptr->settings, "Rendering resolution", Resolutions, &SETTINGS.stg.rendering_resolution, "group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Fullscreen", TW_TYPE_BOOLCPP, &SETTINGS.stg.fullscreen, "group='Rendering settings' help='You need to restart the game for changes to take effect'");
+	TwAddVarRW(overlays_ptr->settings, "Cross-eye 3D", TW_TYPE_BOOLCPP, &SETTINGS.stg.cross_eye, "group='Rendering settings'");
+	TwAddVarRW(overlays_ptr->settings, "3D eye separation", TW_TYPE_FLOAT, &SETTINGS.stg.eye_separation, "min=-2 step=0.05 max=2 group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Screenshot resolution", Resolutions, &SETTINGS.stg.screenshot_resolution, "group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Shader configuration", Configurations, &SETTINGS.stg.shader_config, "group='Rendering settings'");
-	TwAddVarRW(overlays_ptr->settings, "MRRM scaling", TW_TYPE_INT32, &SETTINGS.stg.MRRM_scale, "min=2 max=8 group='Rendering settings'");
+	TwAddVarRW(overlays_ptr->settings, "Multi Resolution Ray Marching scaling", TW_TYPE_INT32, &SETTINGS.stg.MRRM_scale, "min=2 max=8 group='Rendering settings' help='Don't touch this'");
 	TwAddVarRW(overlays_ptr->settings, "Shadow downscaling", TW_TYPE_INT32, &SETTINGS.stg.shadow_resolution, "min=1 max=8 group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Bloom downscaling", TW_TYPE_INT32, &SETTINGS.stg.bloom_resolution, "min=1 max=8 group='Rendering settings'");
+	TwAddButton(overlays_ptr->settings, "Apply1", ApplySettings, NULL, "group='Rendering settings' label='Apply settings'  ");
 
-	
+	TwAddVarRW(overlays_ptr->settings, "Auto-exposure speed", TW_TYPE_FLOAT, &SETTINGS.stg.auto_exposure_speed, "min=0 step=0.01 max=1 group='Graphics settings' help='The speed at which the camera adapts to the scene brightness' ");
+	TwAddVarRW(overlays_ptr->settings, "Auto-exposure target brightness", TW_TYPE_FLOAT, &SETTINGS.stg.auto_exposure_target, "min=0 step=0.01 max=1 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "FOV", TW_TYPE_FLOAT, &SETTINGS.stg.FOV, "min=30 step=1 max=180 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "VSYNC", TW_TYPE_BOOLCPP, &SETTINGS.stg.VSYNC, "group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Shadows", TW_TYPE_BOOLCPP, &SETTINGS.stg.shadows, "group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Reflection and Refraction", TW_TYPE_BOOLCPP, &SETTINGS.stg.refl_refr, "group='Graphics settings'");
-	TwAddVarRW(overlays_ptr->settings, "Volumetric fog", TW_TYPE_BOOLCPP, &SETTINGS.stg.fog, "group='Graphics settings'");
+	TwAddVarRW(overlays_ptr->settings, "Volumetric fog(TODO)", TW_TYPE_BOOLCPP, &SETTINGS.stg.fog, "group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Blur", TW_TYPE_FLOAT, &SETTINGS.stg.motion_blur, "min=0 step=0.001 max=0.75 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Exposure", TW_TYPE_FLOAT, &SETTINGS.stg.exposure, "min=0 max=5 step=0.001 group='Graphics settings'");
-	TwAddVarRW(overlays_ptr->settings, "Bloom Treshold", TW_TYPE_FLOAT, &SETTINGS.stg.bloom_treshold, "min=0 max=5 step=0.001 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Bloom Intensity", TW_TYPE_FLOAT, &SETTINGS.stg.bloom_intensity, "min=0 max=5 step=0.001 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Bloom Radius", TW_TYPE_FLOAT, &SETTINGS.stg.bloom_radius, "min=1 max=10 step=0.1 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Material gamma", TW_TYPE_FLOAT, &SETTINGS.stg.gamma_material, "min=0 max=4 step=0.1 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Sky gamma", TW_TYPE_FLOAT, &SETTINGS.stg.gamma_sky, "min=0 max=4 step=0.1 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Camera gamma", TW_TYPE_FLOAT, &SETTINGS.stg.gamma_camera, "min=0 max=4 step=0.1 group='Graphics settings'");
-
+	TwAddButton(overlays_ptr->settings, "Apply2", ApplySettings, NULL, "group='Graphics settings' label='Apply settings'  ");
 
 	TwAddVarRW(overlays_ptr->settings, "Language", Languages, &SETTINGS.stg.language, "group='Gameplay settings'");
-	TwEnumVal marble_type[] = { { 0, "Glass"  },
-								{ 1,  "Metal" } };
+	TwEnumVal marble_type[] = { { 0,  "Glass"  },
+								{ 1,  "Metal" },
+								{ 2,  "Ceramic" } };
 
-	TwType Marble_type = TwDefineEnum("Marble type", marble_type, 2);
+	TwType Marble_type = TwDefineEnum("Marble type", marble_type, 3);
 	TwAddVarRW(overlays_ptr->settings, "Marble type", Marble_type, &SETTINGS.stg.marble_type, "group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "Play next level", TW_TYPE_BOOLCPP, &SETTINGS.stg.play_next, "group='Gameplay settings' help='Will play next level of a level pack if enabled'");
-	TwAddVarRW(overlays_ptr->settings, "Mouse sensitivity", TW_TYPE_FLOAT, &SETTINGS.stg.mouse_sensitivity, "min=0.001 max=0.02 step=0.001 group='Gameplay settings'");
-	TwAddVarRW(overlays_ptr->settings, "Wheel sensitivity", TW_TYPE_FLOAT, &SETTINGS.stg.wheel_sensitivity, "min=0.01 max=0.5 step=0.01 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "Music volume", TW_TYPE_FLOAT, &SETTINGS.stg.music_volume, "min=0 max=100 step=1 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "FX volume", TW_TYPE_FLOAT, &SETTINGS.stg.fx_volume, "min=0 max=100 step=1 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "Target FPS", TW_TYPE_FLOAT, target_fps, "min=24 max=144 step=1 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "Camera size", TW_TYPE_FLOAT, &scene_ptr->camera_size, "min=0 max=10 step=0.001 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "Camera speed(Free mode)", TW_TYPE_FLOAT, &scene_ptr->free_camera_speed, "min=0 max=100 step=0.001 group='Gameplay settings'");
 
-	TwAddButton(overlays_ptr->settings, "Apply", ApplySettings, NULL, " label='Apply settings'  ");
+	TwAddButton(overlays_ptr->settings, "Apply3", ApplySettings, NULL, "group='Gameplay settings' label='Apply settings'  ");
 
+	TwAddVarRW(overlays_ptr->settings, "Mouse sensitivity", TW_TYPE_FLOAT, &SETTINGS.stg.mouse_sensitivity, "min=0.001 max=0.02 step=0.001 group='Control settings'");
+	TwAddVarRW(overlays_ptr->settings, "Wheel sensitivity", TW_TYPE_FLOAT, &SETTINGS.stg.wheel_sensitivity, "min=0.01 max=0.5 step=0.01 group='Control settings'");
+	TwAddVarRW(overlays_ptr->settings, "Windows touch controls(experimental)", TW_TYPE_BOOLCPP, &SETTINGS.stg.touch_mode, "group='Control settings' help='Use a touchscreen'");
+	TwAddVarRO(overlays_ptr->settings, "Status", TW_TYPE_STDSTRING, &status_text, " label='STATUS' group='Control settings' ");
 
+	TwAddButton(overlays_ptr->settings, "AXIS_X_M", SetButton, &key[0], "group='Control settings' label='Joystick - choose X movement axis'  ");
+	TwAddButton(overlays_ptr->settings, "AXIS_Y_M", SetButton, &key[1], "group='Control settings' label='Joystick - choose Y movement axis'   ");
+	TwAddButton(overlays_ptr->settings, "AXIS_X_V", SetButton, &key[2], "group='Control settings' label='Joystick - choose X view axis' ");
+	TwAddButton(overlays_ptr->settings, "AXIS_Y_V", SetButton, &key[3], "group='Control settings' label='Joystick - choose Y view axis'  ");
+	TwAddButton(overlays_ptr->settings, "Apply4", ApplySettings, NULL, "group='Control settings' label='Apply settings'  ");
 	int barPos1[2] = { 16, 250 };
 
 	TwSetParam(overlays_ptr->settings, NULL, "position", TW_PARAM_INT32, 2, &barPos1);
@@ -1088,12 +1258,11 @@ void InitializeATBWindows(float* fps, float *target_fps)
 	TwAddVarRW(overlays_ptr->flaunch, "Screenshot resolution", Resolutions, &SETTINGS.stg.screenshot_resolution, "");
 	TwAddVarRW(overlays_ptr->flaunch, "Language", Languages, &SETTINGS.stg.language, "");
 	TwAddButton(overlays_ptr->flaunch, "OK", InitialOK, NULL, " label='OK'  ");
-	TwSetParam(overlays_ptr->flaunch, NULL, "position", TW_PARAM_INT32, 2, &barPos1);
 
 	TwDefine(" GLOBAL fontsize=3 ");
 	TwDefine("LevelEditor visible=false size='420 350' color='0 80 230' alpha=210 label='Level editor' valueswidth=200");
 	TwDefine("FractalEditor visible=false size='420 350' color='0 120 200' alpha=210 label='Fractal editor' valueswidth=200");
-	TwDefine("Settings color='255 128 0' alpha=210 size='420 350' valueswidth=200");
+	TwDefine("Settings color='255 128 0' alpha=210 size='420 500' valueswidth=100");
 	TwDefine("First_launch visible=false color='0 0 0' alpha=255 size='500 200' valueswidth=300");
 	TwDefine("Statistics color='0 128 255' alpha=210 size='420 160' valueswidth=200");
 }

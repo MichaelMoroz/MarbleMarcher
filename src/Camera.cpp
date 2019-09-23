@@ -100,6 +100,11 @@ void Camera::SetDirZ(vec3 dir)
 	dirz.z = dir.z;
 }
 
+void Camera::UpdateExposure(float illumination)
+{
+	exposure += auto_exposure_speed*(auto_exposure_target - illumination)*exposure;
+}
+
 vec3 Camera::GetPosition()
 {
 	if (cur_mode == ThirdPerson)
@@ -152,13 +157,12 @@ gl_camera Camera::GetGLdata()
 	cam.speckle = speckle;
 	cam.size = size;
 	cam.bloomintensity = bloomintensity;
-	cam.bloomtreshold = bloomtreshold;
 	cam.bloomradius = bloomradius;
 
 	//data for the renderer
-	cam.stepN = 0; 
-	cam.step = 0;
 	cam.resolution = resolution; //not a property of the camera, but of the renderer
+	cam.cross_eye = cross_eye;
+	cam.eye_separation = eye_separation;
 
 	return cam;
 }

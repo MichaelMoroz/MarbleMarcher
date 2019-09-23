@@ -13,7 +13,7 @@ class Wobject
 
 class WorldModel
 {
-
+	//TODO in v1.5
 };
 
 std::vector<fs::path> GetFilesInFolder(std::string folder, std::string filetype);
@@ -37,13 +37,16 @@ public:
 	void LoadExternalTextures(std::string texture_folder);
 
 	void Render();
+
+	float EvaluateAvgIllumination();
+
 	std::vector<ComputeShader> shader_pipeline;
 	Camera camera;
 	std::map<std::string, float> variables;
 
 private:
 	GLuint GenerateTexture(float w, float h);
-
+	float illumination;
 	std::string config_file;
 	std::string config_folder;
 	int width, height;
@@ -53,4 +56,7 @@ private:
 	std::vector<GLuint> main_textures;
 	std::vector<std::vector<GLuint>> shader_textures;
 	std::vector<sf::Texture> input_textures;
+
+	GLuint illumination_texture;
+	ComputeShader weight_shader;
 };

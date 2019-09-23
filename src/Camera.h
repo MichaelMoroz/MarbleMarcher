@@ -21,10 +21,9 @@ typedef struct
 	float speckle;
 	float size;
 	float bloomintensity;
-	float bloomtreshold;
 	float bloomradius;
-	int stepN;
-	int step;
+	bool cross_eye;
+	float eye_separation;
 } gl_camera;
 
 class Camera
@@ -37,8 +36,8 @@ public:
 		FirstPerson
 	};
 
-	Camera(): alpha(0), beta(0), gamma(0), cur_mode(Free), radius(1.f),
-		smooth(0.3f), FOV(75.f), focus(1e10), bokeh(0), mblur(0.008), speckle(10), size(0), exposure(0.7f), bloomintensity(0.05), bloomtreshold(2.7), bloomradius(3)
+	Camera() : alpha(0), beta(0), gamma(0), cur_mode(Free), radius(1.f), auto_exposure_speed(0.5),
+		smooth(0.3f), FOV(75.f), focus(1e10), bokeh(0), mblur(0.008), speckle(10), size(0), exposure(0.7f), bloomintensity(0.05), bloomradius(3)
 	{
 		//camera directions
 		dirx = quat(0, 1, 0, 0);
@@ -71,6 +70,8 @@ public:
 	void SetDirY(vec3 dir);
 	void SetDirZ(vec3 dir);
 
+	void UpdateExposure(float illumination);
+
 	vec3 GetPosition();
 	vec3 GetDirX();
 	vec3 GetDirY();
@@ -89,10 +90,15 @@ public:
 	void Update(float dt);
 
 	//exposure, motion blur and speckle radius
-	float exposure, mblur, speckle, bloomintensity, bloomtreshold, bloomradius;
+	float exposure, mblur, speckle, bloomintensity, bloomradius;
+	bool cross_eye;
+	float eye_separation;
+
+	float auto_exposure_speed;
+	float auto_exposure_target;
 private:
 	CameraMode cur_mode;
-
+	
 	//camera position 
 	vec3 position;
 

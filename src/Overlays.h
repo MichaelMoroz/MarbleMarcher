@@ -22,8 +22,6 @@
 
 #include <AntTweakBar.h>
 
-extern Settings game_settings;
-
 class Overlays {
 public:
   enum Texts {
@@ -61,7 +59,7 @@ public:
   sf::Sound sound_screenshot;
   sf::Sound sound_go;
 
-  Overlays(sf::Font* _font, sf::Font* _font_mono, Scene* scene);
+  Overlays(Scene* scene);
 
   void ReloadLevelMenu(Scene * scene);
 
