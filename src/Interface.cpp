@@ -120,6 +120,11 @@ bool NoObjects()
 	return true;
 }
 
+int NumberOfObjects()
+{
+	return global_objects.size();
+}
+
 void RemoveGlobalObject(int id)
 {
 	if (global_objects.count(id) != 0)
@@ -150,6 +155,43 @@ void Add2DeleteQueue(int id)
 	if (global_objects.count(id) != 0)
 	{
 		del.push_back(id);
+	}
+}
+
+std::string key_name(sf::Keyboard::Key & key)
+{
+	//yeah, I dont like this code either
+#define ITEM(x) case sf::Keyboard::x : return #x;
+	switch (key)
+	{
+		ITEM(A); ITEM(B); ITEM(C);
+		ITEM(D); ITEM(E); ITEM(F); ITEM(G);
+		ITEM(H); ITEM(I); ITEM(J); ITEM(K);
+		ITEM(L); ITEM(M); ITEM(N); ITEM(O);
+		ITEM(P); ITEM(Q); ITEM(R); ITEM(S);
+		ITEM(T); ITEM(U); ITEM(V); ITEM(W);
+		ITEM(X); ITEM(Y); ITEM(Z); ITEM(Num0);
+		ITEM(Num1); ITEM(Num2); ITEM(Num3); ITEM(Num4);
+		ITEM(Num5); ITEM(Num6); ITEM(Num7); ITEM(Num8);
+		ITEM(Num9); ITEM(Escape); ITEM(LControl); ITEM(LShift);
+		ITEM(LAlt); ITEM(LSystem); ITEM(RControl); ITEM(RShift);
+		ITEM(RAlt); ITEM(RSystem); ITEM(Menu); ITEM(LBracket);
+		ITEM(RBracket); /*ITEM(Semicolon);*/ ITEM(Comma); ITEM(Period);
+		ITEM(Quote); ITEM(Slash); /*ITEM(Backslash);*/ ITEM(Tilde);
+		ITEM(Equal);/* ITEM(Hyphen);*/ ITEM(Space); /*ITEM(Enter);*/
+		/*ITEM(Backspace); */ITEM(Tab); ITEM(PageUp); ITEM(PageDown);
+		ITEM(End); ITEM(Home); ITEM(Insert); ITEM(Delete);
+		ITEM(Add); ITEM(Subtract); ITEM(Multiply); ITEM(Divide);
+		ITEM(Left); ITEM(Right); ITEM(Up); ITEM(Down);
+		ITEM(Numpad0); ITEM(Numpad1); ITEM(Numpad2); ITEM(Numpad3);
+		ITEM(Numpad4); ITEM(Numpad5); ITEM(Numpad6); ITEM(Numpad7);
+		ITEM(Numpad8); ITEM(Numpad9); ITEM(F1); ITEM(F2);
+		ITEM(F3); ITEM(F4); ITEM(F5); ITEM(F6);
+		ITEM(F7); ITEM(F8); ITEM(F9); ITEM(F10);
+		ITEM(F11); ITEM(F12); ITEM(F13); ITEM(F14);
+		ITEM(F15); ITEM(Pause);
+	default:
+		return "UNKNOWN";
 	}
 }
 
@@ -274,6 +316,7 @@ void Object::SetMargin(float x)
 
 void Object::SetInsideSize(float x)
 {
+	curstate.inside_size = x;
 	defaultstate.inside_size = x;
 	activestate.inside_size = x;
 	hoverstate.inside_size = x;
@@ -608,6 +651,11 @@ void Box::SetBackground(const sf::Texture & texture)
 
 void Box::Draw(sf::RenderWindow * window, InputState& state)
 {
+	if (auto_size)
+	{
+		SetSize(this->defaultstate.size.x, this->defaultstate.inside_size + this->defaultstate.margin);
+	}
+
 	//update the box itself
 	if (   !(ToColor(defaultstate.color_main) == sf::Color::Transparent && curmode == DEFAULT)
 		&& !(ToColor(hoverstate.color_main) == sf::Color::Transparent && curmode == ONHOVER)
@@ -631,80 +679,81 @@ void Box::Draw(sf::RenderWindow * window, InputState& state)
 	sf::FloatRect local_viewport = sf::FloatRect(curstate.position.x / view_size.x, curstate.position.y / view_size.y, curstate.size.x / view_size.x, curstate.size.y / view_size.y);
 	sf::FloatRect this_viewport = overlap(global_viewport, local_viewport);
 	boxView.setViewport(this_viewport);
+	
+	float line_height = 0;
+	float cur_shift_x1 = curstate.margin, cur_shift_x2 = curstate.margin;
+	float cur_shift_y = curstate.margin + curstate.scroll;
 
-	if (this_viewport.width > 0.f && this_viewport.height > 0.f)
+	//update all the stuff inside the box
+	for (auto &obj : objects)
 	{
-		float line_height = 0;
-		float cur_shift_x1 = curstate.margin, cur_shift_x2 = curstate.margin;
-		float cur_shift_y = curstate.margin + curstate.scroll;
-
-		//update all the stuff inside the box
-		for (auto &obj : objects)
+		Allign A = obj.get()->obj_allign;
+		bool not_placed = true;
+		int tries = 0;
+		int obj_id = obj.get()->id;
+		float obj_h = obj.get()->curstate.size.y;
+		while (not_placed && tries < 2) //try to place the object somewhere
 		{
-			Allign A = obj.get()->obj_allign;
-			bool not_placed = true;
-			int tries = 0;
-			int obj_id = obj.get()->id;
-			float obj_h = obj.get()->curstate.size.y;
-			while (not_placed && tries < 2) //try to place the object somewhere
-			{
-				float space_left = defaultstate.size.x - cur_shift_x1 - cur_shift_x2;
-				float obj_width = obj.get()->curstate.size.x;
+			float space_left = defaultstate.size.x - cur_shift_x1 - cur_shift_x2;
+			float obj_width = obj.get()->curstate.size.x;
 
-				if (space_left >= obj_width || space_left >= defaultstate.size.x - 2 * curstate.margin)
+			if (space_left >= obj_width || space_left >= defaultstate.size.x - 2 * curstate.margin)
+			{
+				not_placed = false;
+				switch (A)
 				{
-					not_placed = false;
-					switch (A)
-					{
-					case LEFT:
-						obj.get()->SetPosition(curstate.position.x + cur_shift_x1, curstate.position.y + cur_shift_y);
-						cur_shift_x1 += obj_width + curstate.margin;
-						line_height = std::max(obj_h, line_height);
-						break;
-					case CENTER:
-						obj.get()->SetPosition(curstate.position.x + defaultstate.size.x * 0.5f - obj_width * 0.5f, curstate.position.y + cur_shift_y);
-						line_height = std::max(obj_h, line_height);
-						cur_shift_y += line_height + curstate.margin;
-						line_height = 0;
-						cur_shift_x1 = curstate.margin;
-						cur_shift_x2 = curstate.margin;
-						break;
-					case RIGHT:
-						obj.get()->SetPosition(curstate.position.x + defaultstate.size.x - obj_width - cur_shift_x2, curstate.position.y + cur_shift_y);
-						cur_shift_x2 += obj_width + curstate.margin;
-						line_height = std::max(obj_h, line_height);
-						break;
-					}
-				}
-				else
-				{
+				case LEFT:
+					obj.get()->SetPosition(curstate.position.x + cur_shift_x1, curstate.position.y + cur_shift_y);
+					cur_shift_x1 += obj_width + curstate.margin;
+					line_height = std::max(obj_h, line_height);
+					break;
+				case CENTER:
+					obj.get()->SetPosition(curstate.position.x + defaultstate.size.x * 0.5f - obj_width * 0.5f, curstate.position.y + cur_shift_y);
+					line_height = std::max(obj_h, line_height);
 					cur_shift_y += line_height + curstate.margin;
 					line_height = 0;
 					cur_shift_x1 = curstate.margin;
 					cur_shift_x2 = curstate.margin;
-					tries++;
+					break;
+				case RIGHT:
+					obj.get()->SetPosition(curstate.position.x + defaultstate.size.x - obj_width - cur_shift_x2, curstate.position.y + cur_shift_y);
+					cur_shift_x2 += obj_width + curstate.margin;
+					line_height = std::max(obj_h, line_height);
+					break;
 				}
-
 			}
-			if (tries >= 2)
+			else
 			{
-				//ERROR_MSG("Object does not fit in the box.");
-			}
-			sf::FloatRect obj_box(obj.get()->curstate.position, obj.get()->curstate.size);
-			sf::FloatRect seen_part = overlap(obj_box, this_view);
-			//if the object is seen in the view, then update it
-			if (seen_part.width > 0.f && seen_part.height > 0.f)
-			{
-				obj.get()->used_view = boxView;
-				obj.get()->Update(window, state);
+				cur_shift_y += line_height + curstate.margin;
+				line_height = 0;
+				cur_shift_x1 = curstate.margin;
+				cur_shift_x2 = curstate.margin;
+				tries++;
 			}
 
 		}
-		this->SetInsideSize(cur_shift_y - curstate.scroll - curstate.margin);
+		if (tries >= 2)
+		{
+			//ERROR_MSG("Object does not fit in the box.");
+		}
+		sf::FloatRect obj_box(obj.get()->curstate.position, obj.get()->curstate.size);
+		sf::FloatRect seen_part = overlap(obj_box, this_view);
+		//if the object is seen in the view, then update it
+		if (seen_part.width > 0.f && seen_part.height > 0.f)
+		{
+			obj.get()->used_view = boxView;
+			obj.get()->Update(window, state);
+		}
+
 	}
+
+	cur_shift_y += line_height + curstate.margin;
+
+	this->SetInsideSize(cur_shift_y - curstate.scroll - curstate.margin);
+
 }
 
-Box::Box(float x, float y, float dx, float dy, sf::Color color_main)
+Box::Box(float x, float y, float dx, float dy, sf::Color color_main): auto_size(false)
 {
 	defaultstate.position.x = x;
 	defaultstate.position.y = y;
@@ -715,7 +764,7 @@ Box::Box(float x, float y, float dx, float dy, sf::Color color_main)
 	clone_states();
 }
 
-Box::Box(float dx, float dy, sf::Color color_main)
+Box::Box(float dx, float dy, sf::Color color_main) : auto_size(false)
 {
 	defaultstate.position.x = 0;
 	defaultstate.position.y = 0;
@@ -725,10 +774,8 @@ Box::Box(float dx, float dy, sf::Color color_main)
 	clone_states();
 }
 
-Box::Box()
-{
-
-}
+Box::Box() : auto_size(false)
+{ }
 
 Box::Box(Box & A)
 {
@@ -740,10 +787,16 @@ Box::Box(Box && A)
 	*this = A;
 }
 
+void Box::SetAutoSize(bool b)
+{
+	auto_size = b;
+}
+
 void Box::operator=(Box & A)
 {
 	copy(A);
 
+	auto_size = A.auto_size;
 	rect = A.rect;
 	boxView = A.boxView;
 	SetBackground(A.image);
@@ -753,6 +806,7 @@ void Box::operator=(Box && A)
 {
 	copy(A);
 
+	std::swap(auto_size, A.auto_size);
 	std::swap(image, A.image);
 	std::swap(rect, A.rect);
 	std::swap(boxView, A.boxView);
@@ -911,12 +965,13 @@ void MenuBox::AddObject(Object * something, Allign a)
 	float height = this->objects[0].get()->defaultstate.size.y;
 	float height_1 = height - 2 * this->objects[1].get()->defaultstate.margin;
 	float new_h = std::min(height_1 * (height / inside_size), height_1);
-	if (new_h == height_1)
+	if (new_h == height_1 || auto_size)
 	{
 		//remove the slider
 		this->objects[1].get()->SetWidth(0);
 		this->objects[1].get()->objects[0].get()->SetWidth(0);
 		this->objects[0].get()->SetWidth(this->defaultstate.size.x);
+		this->objects[1].get()->SetHeigth(0);
 	}
 	else
 	{
@@ -924,6 +979,7 @@ void MenuBox::AddObject(Object * something, Allign a)
 		this->objects[1].get()->SetWidth(30);
 		this->objects[1].get()->objects[0].get()->SetWidth(26);
 		this->objects[1].get()->objects[0].get()->SetHeigth(new_h);
+		this->objects[1].get()->SetHeigth(height);
 	}
 }
 
@@ -956,10 +1012,10 @@ void MenuBox::ScrollBy(float dx)
 {
 	float inside_size = this->objects[0].get()->defaultstate.inside_size;
 	float cur_scroll = -this->objects[0].get()->defaultstate.scroll + dx;
-	float height_1 = this->objects[1].get()->defaultstate.size.y - 2 * this->objects[1].get()->defaultstate.margin;
+	float height_1 = this->objects[0].get()->defaultstate.size.y - 2 * this->objects[1].get()->defaultstate.margin;
 	float height_2 = this->objects[1].get()->objects[0].get()->defaultstate.size.y;
 	//only scroll within the appropriate range
-	if (cur_scroll <= inside_size - height_1 + 100 && cur_scroll >= 0)
+	if (cur_scroll <= inside_size - height_1 && cur_scroll >= 0 && inside_size > height_1)
 	{
 		this->objects[0].get()->ApplyScroll(-cur_scroll);
 		float max_slide_scroll = height_1 - height_2;
@@ -976,19 +1032,21 @@ void MenuBox::ScrollTo(float scroll)
 	ScrollBy(ds);
 }
 
-MenuBox::MenuBox(float dx, float dy, float x, float y, sf::Color color_main): cursor_id(0)
+MenuBox::MenuBox(float dx, float dy, bool auto_y, float x, float y, sf::Color color_main) : cursor_id(0)
 {
+	SetAutoSize(auto_y);
 	defaultstate.position.x = x;
 	defaultstate.position.y = y;
 	defaultstate.size.x = dx;
 	defaultstate.size.y = dy;
 	defaultstate.color_main = ToColorF(color_main);
 	clone_states();
+	float scroll_size = auto_y?0:30;
+	Box Inside(0, 0, dx - scroll_size, dy, sf::Color(100, 100, 100, 128)),
+		Scroll(0, 0, scroll_size, auto_y ? 0 : dy, sf::Color(150, 150, 150, 128)),
+		Scroll_Slide(0, 0, scroll_size-2, 60, sf::Color(255, 150, 0, 128));
 
-	Box Inside(0, 0, dx - 30, dy, sf::Color(100, 100, 100, 128)),
-		Scroll(0, 0, 30, dy, sf::Color(150, 150, 150, 128)),
-		Scroll_Slide(0, 0, 28, 60, sf::Color(255, 150, 0, 128));
-
+	Inside.SetAutoSize(auto_y);
 	Scroll_Slide.hoverstate.color_main = sf::Color(255, 50, 0, 128);
 	Scroll_Slide.activestate.color_main = sf::Color(255, 100, 100, 255);
 	Inside.SetBackgroundColor(sf::Color::Transparent);
@@ -1051,7 +1109,7 @@ void MenuBox::CreateCallbacks()
 			A = 1;
 		}
 
-		if (state.keys[sf::Keyboard::Enter])
+		if (state.keys[sf::Keyboard::Return])
 		{
 			//run the callback function of the chosen object
 			A = parent->objects[0].get()->objects[parent->cursor_id].get()->RunCallback(window, state);
@@ -1168,4 +1226,125 @@ Object * Image::GetCopy()
 
 Image::~Image()
 {
+}
+
+KeyMapper::KeyMapper(KeyMapper & A)
+{
+	*this = A;
+}
+
+KeyMapper::KeyMapper(KeyMapper && A)
+{
+	*this = A;
+}
+
+void KeyMapper::operator=(KeyMapper & A)
+{
+	Box::operator=(A);
+	this_type = A.this_type;
+	key_ptr = A.key_ptr;
+	waiting = A.waiting;
+	wait_text = A.wait_text;
+	CreateCallbacks();
+}
+
+void KeyMapper::operator=(KeyMapper && A)
+{
+	Box::operator=(A);
+	std::swap(this_type, A.this_type);
+	std::swap(key_ptr, A.key_ptr);
+	waiting = A.waiting;
+	wait_text = A.wait_text;
+	CreateCallbacks();
+}
+
+void KeyMapper::CreateCallbacks()
+{
+	//use a lambda function
+	this->objects[1].get()->SetMainCallbackFunction([parent = this](sf::RenderWindow * window, InputState & state)
+	{
+		parent->waiting = true;
+		//get the text pointer out of the object pointer inside the parent
+		Text *text_ptr = static_cast<Text*>(parent->objects[1].get()->objects[0].get());
+		text_ptr->SetString(parent->wait_text);
+	});
+
+
+	this->SetMainDefaultFunction([parent = this](sf::RenderWindow * window, InputState & state)
+	{
+		if (parent->waiting)
+		{
+			if (state.key_press[sf::Keyboard::Escape])
+			{
+				parent->SetKeyString(); //exit
+			}
+			else switch (parent->this_type)
+			{
+			case KEYBOARD:
+				if (state.isKeyPressed)
+				{
+					//search for the pressed key
+					for (sf::Keyboard::Key i = sf::Keyboard::A; i < sf::Keyboard::KeyCount; i = sf::Keyboard::Key(i + 1))
+					{
+						if (state.keys[i]) //found
+						{
+							*(parent->key_ptr) = i;
+							parent->SetKeyString();
+							break;
+						}
+					}
+				}
+				break;
+			case JOYSTICK_AXIS:
+				//search for the axis
+				for (int i = 0; i < sf::Joystick::AxisCount; i++)
+				{
+					if (abs(state.axis_value[i]) > 0.5f  && state.axis_moved[i])
+					{
+						*(parent->key_ptr) = i;
+						parent->SetKeyString();
+						break;
+					}
+				}
+				break;
+			case JOYSTICK_KEYS:
+				//search for the pressed joystick key
+				for (int i = 0; i < sf::Joystick::ButtonCount; i++)
+				{
+					if (state.button_pressed[i])
+					{
+						*(parent->key_ptr) = i;
+						parent->SetKeyString();
+						break;
+					}
+				}
+				
+				break;
+			}
+		}
+	});
+}
+
+void KeyMapper::SetKeyString()
+{
+	Text *text_ptr = static_cast<Text*>(objects[1].get()->objects[0].get());
+	waiting = false;
+	sf::Keyboard::Key key = sf::Keyboard::Key(*key_ptr);
+	switch (this_type)
+	{
+	case KEYBOARD:
+		text_ptr->SetString(key_name(key));
+		break;
+	case JOYSTICK_AXIS:
+		text_ptr->SetString("Axis " + num2str(*key_ptr));
+		break;
+	case JOYSTICK_KEYS:
+		text_ptr->SetString("Key " + num2str(*key_ptr));
+		break;
+	}
+}
+
+Object * KeyMapper::GetCopy()
+{
+	return static_cast<Object*>(new KeyMapper(*this));
 }

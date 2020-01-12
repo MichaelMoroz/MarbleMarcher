@@ -3,11 +3,7 @@ bool initialized = false;
 
 ComputeShader::ComputeShader()
 {
-	/*int work_grp_cnt[3];
 
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);*/
 }
 
 ComputeShader::ComputeShader(const std::string file_path)
@@ -32,6 +28,12 @@ std::string ComputeShader::LoadFileText(fs::path path)
 	}
 	return text;
 }
+
+void ComputeShader::Delete()
+{
+	glDeleteProgram(ProgramID);
+}
+
 
 void ComputeShader::LoadShader(const std::string file_path)
 {
@@ -74,6 +76,10 @@ void ComputeShader::LoadShader(const std::string file_path)
 			glGetProgramInfoLog(ProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
 			ERROR_MSG(("Compute program error. \n" + std::string(&ProgramErrorMessage[0])).c_str());
 		}
+
+		glDetachShader(ProgramID, ComputeShaderID);
+
+		glDeleteShader(ComputeShaderID);
 }
 
 void ComputeShader::Run(vec2 global)
@@ -152,6 +158,7 @@ void ComputeShader::setCamera(gl_camera cam)
 	setUniform("Camera.speckle", cam.speckle);
 	setUniform("Camera.cross_eye", cam.cross_eye);
 	setUniform("Camera.eye_separation", cam.eye_separation);
+	setUniform("iFrame", cam.iFrame);
 }
 
 GLuint ComputeShader::getNativeHandle()
@@ -165,7 +172,8 @@ bool INIT()
 	{
 		return true;
 	}
-	if ( glewInit() != GLEW_OK) {
+	if ( glewInit() != GLEW_OK) 
+	{
 		ERROR_MSG("Failed to initialize GLEW\n");
 		return false;
 	}
@@ -180,6 +188,7 @@ std::string ComputeShader::PreprocessIncludes(const fs::path& filename, int leve
 		ERROR_MSG("Header inclusion depth limit reached, might be caused by cyclic header inclusion");
 	using namespace std;
 
+	//match regular expression
 	static const regex re("^[ ]*#include\s*[\"<](.*)[\">].*");
 	stringstream input;
 	stringstream output;
@@ -192,7 +201,7 @@ std::string ComputeShader::PreprocessIncludes(const fs::path& filename, int leve
 		if (regex_search(line, matches, re))
 		{
 			//add the code from the included file
-			std::string include_file = filename.parent_path().string() + "/" + matches[1].str();
+			std::string include_file = compute_folder + "/" + matches[1].str();
 			output << PreprocessIncludes(include_file, level + 1) << endl;
 		}
 		else

@@ -5,7 +5,7 @@
 #include <GL/glew.h>
 #endif
 
-#include <glm\glm.hpp>
+#include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGL.hpp>
@@ -16,6 +16,7 @@
 #include <map>
 #include <algorithm>
 #include <sstream>
+#include <Res.h>
 
 namespace fs = std::filesystem;
 
@@ -23,6 +24,7 @@ namespace fs = std::filesystem;
 #include <Windows.h>
 #define ERROR_MSG(x) MessageBox(nullptr, TEXT(x), TEXT("ERROR"), MB_OK);
 #else
+#include<iostream>
 #define ERROR_MSG(x) std::cerr << x << std::endl;
 #endif
 
@@ -56,4 +58,6 @@ public:
 	void SaveErrors(const fs::path & filename, std::string code, std::string errors);
 
 	std::string LoadFileText(fs::path path);
+
+	void Delete();
 };

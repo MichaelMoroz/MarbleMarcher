@@ -1,17 +1,16 @@
 #include "Gamemodes.h"
 
 
-
 //Global variables
 sf::Vector2i mouse_pos, mouse_prev_pos;
 InputState io_state;
-GamepadState gamepad_state;
 
 bool fullscreen_current = false;
 bool all_keys[sf::Keyboard::KeyCount] = { 0 };
 bool mouse_clicked = false;
 bool show_cheats = false;
-
+bool taken_screenshot = false;
+sf::Clock screenshot_clock;
 //Constants
 
 float target_fps = 60.0f;
@@ -37,6 +36,7 @@ void SetPointers(sf::RenderWindow *w, Scene* scene, Overlays* overlays, Renderer
 
 void OpenMainMenu(Scene * scene, Overlays * overlays)
 {
+	SetCameraFocus(4.5);
 	RemoveAllObjects();
 	game_mode = MAIN_MENU;
 
@@ -46,7 +46,7 @@ void OpenMainMenu(Scene * scene, Overlays * overlays)
 	scene->SetMode(Scene::INTRO);
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
-	MenuBox mainmenu(1000, vsize.y*0.95f, wsize.x*0.025, wsize.y*0.025f);
+	MenuBox mainmenu(1000, vsize.y*0.95f, false, wsize.x*0.025, wsize.y*0.025f);
 	mainmenu.SetBackgroundColor(sf::Color::Transparent);
 	//make the menu static
 	mainmenu.static_object = true;
@@ -184,7 +184,7 @@ void OpenCredits(Scene * scene, Overlays * overlays)
 
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
-	MenuBox creditslist(wsize.x*0.95f, vsize.y*0.95f, (vsize.x - wsize.x*0.95f) / 2, vsize.y*0.025f);
+	MenuBox creditslist(wsize.x*0.95f, vsize.y*0.95f, false, (vsize.x - wsize.x*0.95f) / 2, vsize.y*0.025f);
 
 	//add a default callback
 	creditslist.SetDefaultFunction([scene, overlays](sf::RenderWindow * window, InputState & state)
@@ -226,11 +226,11 @@ void OpenCredits(Scene * scene, Overlays * overlays)
 	{
 		Box credits_entry_1(wsize.x*0.95f - 60, 120);
 		credits_entry_1.SetBackgroundColor(sf::Color(128, 128, 128, 128));
-		credits_entry_1.AddObject(&Image(str[0], 116, 116), Object::Allign::LEFT);
+		credits_entry_1.AddObject(new Image(str[0], 116, 116), Object::Allign::LEFT);
 		Box credits_text_1(wsize.x*0.95f - 200, 116, sf::Color::Transparent);
-		credits_text_1.AddObject(&Text(LOCAL[str[1]], LOCAL("default"), 50), Object::Allign::LEFT);
-		credits_text_1.AddObject(&Box(0, 50), Object::Allign::CENTER);
-		credits_text_1.AddObject(&Text(LOCAL[str[2]], LOCAL("default"), 30), Object::Allign::LEFT);
+		credits_text_1.AddObject(new Text(LOCAL[str[1]], LOCAL("default"), 50), Object::Allign::LEFT);
+		credits_text_1.AddObject(new Box(0, 50), Object::Allign::CENTER);
+		credits_text_1.AddObject(new Text(LOCAL[str[2]], LOCAL("default"), 30), Object::Allign::LEFT);
 		credits_entry_1.AddObject(&credits_text_1, Object::Allign::LEFT);
 		creditslist.AddObject(&credits_entry_1, Object::Allign::LEFT);
 	}
@@ -240,6 +240,8 @@ void OpenCredits(Scene * scene, Overlays * overlays)
 
 void OpenEditor(Scene * scene, Overlays * overlays, int level)
 {
+	SetCameraFocus(1e10);
+	StopReplay();
 	scene->StopMusic();
 	RemoveAllObjects();
 	//go to level editor
@@ -255,6 +257,8 @@ void OpenEditor(Scene * scene, Overlays * overlays, int level)
 
 void PlayLevel(Scene * scene, sf::RenderWindow * window, int level)
 {
+	SetCameraFocus(1e10);
+	StopReplay();
 	RemoveAllObjects();
 	//play level
 	game_mode = PLAYING;
@@ -262,9 +266,21 @@ void PlayLevel(Scene * scene, sf::RenderWindow * window, int level)
 	LockMouse(*window);
 }
 
+void RePlayBest(Scene * scene, sf::RenderWindow * window, int level)
+{
+	SetCameraFocus(1e10);
+	StopReplay();
+	RemoveAllObjects();
+	//play level
+	game_mode = PLAYING;
+	scene->ReplayLevel(level);
+	LockMouse(*window);
+}
+
 
 void OpenControlMenu(Scene * scene, Overlays * overlays)
 {
+
 	RemoveAllObjects();
 	game_mode = CONTROLS;
 
@@ -274,7 +290,7 @@ void OpenControlMenu(Scene * scene, Overlays * overlays)
 
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
-	MenuBox controls(wsize.x*0.95f, vsize.y*0.95f, (vsize.x - wsize.x*0.95f) / 2, vsize.y*0.025f);
+	MenuBox controls(wsize.x*0.95f, vsize.y*0.95f, false, (vsize.x - wsize.x*0.95f) / 2, vsize.y*0.025f);
 
 	//add a default callback
 	controls.SetDefaultFunction([scene, overlays](sf::RenderWindow * window, InputState & state)
@@ -295,7 +311,7 @@ void OpenControlMenu(Scene * scene, Overlays * overlays)
 	ttl.SetBorderWidth(4);
 	controls.AddObject(&ttl, Object::Allign::CENTER);
 
-	controls.AddObject(&Button(LOCAL["Back2Main"], 600, 50,
+	controls.AddObject(new Button(LOCAL["Back2Main"], 600, 50,
 		[scene, overlays](sf::RenderWindow * window, InputState & state)
 		{
 			OpenMainMenu(scene, overlays);
@@ -303,21 +319,40 @@ void OpenControlMenu(Scene * scene, Overlays * overlays)
 		},
 		sf::Color(200, 40, 0, 255), sf::Color(128, 128, 128, 128)), Object::Allign::LEFT);
 
-	controls.AddObject(&Box(800, 0), Object::Allign::CENTER);
+	controls.AddObject(new Box(800, 0), Object::Allign::CENTER);
 
-
-	Text cntrl(LOCAL["DetailControls"], LOCAL("default"), 50, sf::Color::White);
-	cntrl.SetBorderColor(sf::Color::Black);
-	cntrl.SetBorderWidth(4);
-	controls.AddObject(&cntrl, Object::Allign::LEFT);
-
-	
+	controls.AddObject(new Text(LOCAL["Keyboard Controls"], LOCAL("default"), 50), Object::Allign::LEFT);
+	controls.AddObject(new Box(800, 0), Object::Allign::CENTER);
+	controls.AddObject(new KeyMapper(LOCAL["UP"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[UP], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["DOWN"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[DOWN], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["LEFT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[LEFT], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["RIGHT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[RIGHT], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["VIEWUP"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[VIEWUP], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["VIEWDOWN"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[VIEWDOWN], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["VIEWLEFT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[VIEWLEFT], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["VIEWRIGHT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[VIEWRIGHT], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["PAUSE"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[PAUSE], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["RESTART"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[RESTART], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["SCREENSHOT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[SCREENSHOT], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["ZOOM_IN"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[ZOOM_IN], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["ZOOM_OUT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[ZOOM_OUT], 800.f, 35.f, KeyMapper::MapperType::KEYBOARD), Object::Allign::LEFT);
+	controls.AddObject(new Box(800, 0), Object::Allign::CENTER);
+	controls.AddObject(new Text(LOCAL["Gamepad Controls"], LOCAL("default"), 50), Object::Allign::LEFT);
+	controls.AddObject(new Box(800, 0), Object::Allign::CENTER);
+	controls.AddObject(new KeyMapper(LOCAL["JOYSTICK_MOVE_AXIS_X"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[JOYSTICK_MOVE_AXIS_X], 800.f, 35.f, KeyMapper::MapperType::JOYSTICK_AXIS), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["JOYSTICK_MOVE_AXIS_Y"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[JOYSTICK_MOVE_AXIS_Y], 800.f, 35.f, KeyMapper::MapperType::JOYSTICK_AXIS), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["JOYSTICK_VIEW_AXIS_X"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[JOYSTICK_VIEW_AXIS_X], 800.f, 35.f, KeyMapper::MapperType::JOYSTICK_AXIS), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["JOYSTICK_VIEW_AXIS_Y"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[JOYSTICK_VIEW_AXIS_Y], 800.f, 35.f, KeyMapper::MapperType::JOYSTICK_AXIS), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["JOYSTICK_EXIT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[JOYSTICK_EXIT], 800.f, 35.f, KeyMapper::MapperType::JOYSTICK_KEYS), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["JOYSTICK_SCREENSHOT"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[JOYSTICK_SCREENSHOT], 800.f, 35.f, KeyMapper::MapperType::JOYSTICK_KEYS), Object::Allign::LEFT);
+	controls.AddObject(new KeyMapper(LOCAL["JOYSTICK_RESTART"], LOCAL["Waiting for input"], &SETTINGS.stg.control_mapping[JOYSTICK_RESTART], 800.f, 35.f, KeyMapper::MapperType::JOYSTICK_KEYS), Object::Allign::LEFT);
 
 	AddGlobalObject(controls);
 }
 
 void ResumeGame(sf::RenderWindow &window)
 {
+	SetCameraFocus(1e10);
 	RemoveAllObjects();
 	game_mode = PLAYING;
 	LockMouse(window);
@@ -326,11 +361,12 @@ void ResumeGame(sf::RenderWindow &window)
 
 void OpenPauseMenu(Scene * scene, Overlays * overlays)
 {
+	SetCameraFocus(scene->GetMarbleScale()*15.);
 	RemoveAllObjects();
 	scene->SetExposure(1.0f);
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
-	MenuBox pausemenu(625, 640, wsize.x*0.025, wsize.y*0.025f);
+	MenuBox pausemenu(625, 640, false, wsize.x*0.025, wsize.y*0.025f);
 	pausemenu.SetBackgroundColor(sf::Color(32, 32, 32, 200));
 	
 	//make the menu static
@@ -372,9 +408,7 @@ void OpenPauseMenu(Scene * scene, Overlays * overlays)
 	resumebtn.SetCallbackFunction([scene, overlays](sf::RenderWindow * window, InputState & state)
 	{
 		RemoveAllObjects();
-		game_mode = PLAYING;
-		scene->SetExposure(1.0f);
-		LockMouse(*window);
+		ResumeGame(*window);
 		overlays->sound_click.play();
 	}, true);
 	resumebtn.AddObject(&button1, Object::Allign::CENTER);
@@ -391,9 +425,9 @@ void OpenPauseMenu(Scene * scene, Overlays * overlays)
 	{
 		RemoveAllObjects();
 		game_mode = PLAYING;
+		LockMouse(*window);
 		scene->ResetLevel();
 		scene->SetExposure(1.0f);
-		LockMouse(*window);
 		overlays->sound_click.play();
 	}, true);
 	rstbtn.AddObject(&button2, Object::Allign::CENTER);
@@ -469,6 +503,7 @@ void OpenPauseMenu(Scene * scene, Overlays * overlays)
 }
 
 void PauseGame(sf::RenderWindow& window, Overlays * overlays, Scene * scene) {
+	SetCameraFocus(1e10);
 	game_mode = PAUSED;
 	UnlockMouse(window);
 	OpenPauseMenu(scene, overlays);
@@ -477,6 +512,7 @@ void PauseGame(sf::RenderWindow& window, Overlays * overlays, Scene * scene) {
 
 void OpenScreenSaver(Scene * scene, Overlays * overlays)
 {
+	SetCameraFocus(6.);
 	RemoveAllObjects();
 	game_mode = SCREEN_SAVER;
 	scene->SetMode(Scene::SCREEN_SAVER);
@@ -484,6 +520,8 @@ void OpenScreenSaver(Scene * scene, Overlays * overlays)
 
 void PlayNewGame(Scene * scene, sf::RenderWindow * window, int level)
 {
+	SetCameraFocus(1e10);
+	StopReplay();
 	RemoveAllObjects();
 	game_mode = PLAYING;
 	scene->StartNewGame();
@@ -519,7 +557,7 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
-	MenuBox levels(wsize.x*0.95f, vsize.y*0.95f, (vsize.x - wsize.x*0.95f)/2, vsize.y*0.025f);
+	MenuBox levels(wsize.x*0.95f, vsize.y*0.95f, false, (vsize.x - wsize.x*0.95f)/2, vsize.y*0.025f);
 	levels.SetBackgroundColor(sf::Color(32,32,32,160));
 	//make the menu static
 	levels.static_object = true;
@@ -594,7 +632,7 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 		lvltext.AddObject(&lvldescr, Object::Allign::LEFT);
 		lvlbtton.AddObject(&lvltext, Object::Allign::LEFT);
 
-		Box lvlscore(500, 40);
+		Box lvlscore(500, 62);
 		lvlscore.SetBackgroundColor(sf::Color::Transparent);
 		std::string score_text = "--:--:--";
 		if (scores[ids[i]].best_time != 0)
@@ -604,11 +642,22 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 			float seconds = floor(time) - minutes*60;
 			float mili = floor(time*100) - seconds*100 - minutes*6000;
 			//convrt mili to frames
-			score_text = num2str(minutes) + ":" + num2str(seconds) + ":" + num2str(floor(mili*0.6f));
+			score_text = num2str(minutes) + ":" + num2str(seconds) + ":" + num2str(round(mili*0.6f));
 		}
 		Text lvlscorev(score_text, LOCAL("default"), 35, sf::Color::White);
 		lvlscorev.SetBackgroundColor(sf::Color::Green);
 		lvlscore.AddObject(&lvlscorev, Object::Allign::CENTER);
+		if (scores[ids[i]].best_time != 0 && fs::exists(std::string(recordings_folder) + "/" + ConvertSpaces2_(names[ids[i]]) + ".bin"))
+		{
+			lvlscore.AddObject(new Box(0, 5), Object::Allign::CENTER);
+			lvlscore.AddObject(new Button(LOCAL["Replay best run"], 260, 20,
+				[scene, overlays, id = ids[i]](sf::RenderWindow * window, InputState & state)
+			{
+				RePlayBest(scene, window, id);
+				overlays->sound_click.play();
+			},
+				sf::Color(200, 40, 0, 255), sf::Color(128, 128, 128, 128)), Object::Allign::CENTER);
+		}
 		lvlbtton.AddObject(&lvlscore, Object::Allign::LEFT);
 
 		Box lvlavg(500, 40);
@@ -620,7 +669,7 @@ void OpenLevelMenu(Scene* scene, Overlays* overlays)
 			float minutes = floor(time / 60.f);
 			float seconds = floor(time) - minutes * 60;
 			float mili = floor(time * 100) - seconds * 100 - minutes * 6000;
-			score_text = num2str(minutes) + ":" + num2str(seconds) + ":" + num2str(floor(mili*0.6f));
+			score_text = num2str(minutes) + ":" + num2str(seconds) + ":" + num2str(round(mili*0.6f));
 		}
 		Text lvlavgtxt(score_text, LOCAL("default"), 35, sf::Color::White);
 		lvlavgtxt.SetBackgroundColor(sf::Color::White);
@@ -736,11 +785,74 @@ void ConfirmEditorExit(Scene* scene, Overlays* overlays)
 	});
 }
 
+
+void ConfirmExit(Scene* scene, Overlays* overlays)
+{
+	sf::Vector2f wsize = default_size;
+	Window confirm(wsize.x*0.4f, wsize.y*0.4f, 500, 215, sf::Color(0, 0, 0, 128), LOCAL["You_sure"], LOCAL("default"));
+	Text button1(LOCAL["Yes"], LOCAL("default"), 30, sf::Color::White);
+	Text button2(LOCAL["No"], LOCAL("default"), 30, sf::Color::White);
+	Text text(LOCAL["You_sure"], LOCAL("default"), 30, sf::Color::White);
+
+	Box but1(0, 0, 240, 40, sf::Color(0, 64, 128, 240));
+	Box but2(0, 0, 240, 40, sf::Color(0, 64, 128, 240));
+
+	but1.hoverstate.color_main = sf::Color(230, 40, 20, 200);
+	but2.hoverstate.color_main = sf::Color(40, 230, 20, 200);
+	but1.AddObject(&button1, Box::CENTER);
+	but2.AddObject(&button2, Box::CENTER);
+
+	confirm.Add(&text, Box::CENTER);
+	confirm.Add(&but1, Box::RIGHT);
+	confirm.Add(&but2, Box::RIGHT);
+
+	int id = AddGlobalObject(confirm);
+
+	get_glob_obj(id).objects[1].get()->objects[0].get()->objects[1].get()->SetCallbackFunction([scene, overlays, id](sf::RenderWindow * window, InputState & state)
+	{
+		window->close();
+		overlays->sound_click.play();
+	});
+
+	get_glob_obj(id).objects[1].get()->objects[0].get()->objects[2].get()->SetCallbackFunction([scene, overlays, id](sf::RenderWindow * window, InputState & state)
+	{
+		Add2DeleteQueue(id);
+		overlays->sound_click.play();
+	});
+}
+
+
+void DisplayError(std::string error_text)
+{
+	sf::Vector2f wsize = default_size;
+	Window error_window(wsize.x*0.4f, wsize.y*0.4f, 400, 215, sf::Color(100, 0, 0, 128), LOCAL["Error"], LOCAL("default"));
+	
+	error_window.Add(new Text(error_text, LOCAL("default"), 30, sf::Color::Red), Object::Allign::CENTER);
+
+	Scene* scene = scene_ptr;
+	Overlays* overlays = overlays_ptr;
+
+	error_window.Add(new Button(LOCAL["Ok"], 240, 40,
+		[scene, overlays](sf::RenderWindow * window, InputState & state)
+		{
+			overlays->sound_click.play();
+		},
+		sf::Color(200, 40, 0, 255), sf::Color(128, 128, 128, 128)), Object::Allign::RIGHT);
+
+	int id = AddGlobalObject(error_window);
+
+	get_glob_obj(id).objects[1].get()->objects[0].get()->objects[1].get()->SetCallbackFunction(
+	[scene, overlays, id](sf::RenderWindow * window, InputState & state)
+	{
+		Add2DeleteQueue(id);
+	});
+}
+
 void LockMouse(sf::RenderWindow& window) {
 	window.setMouseCursorVisible(false);
-	const sf::Vector2u size = window.getSize();
-	mouse_pos = sf::Vector2i(size.x / 2, size.y / 2);
-	sf::Mouse::setPosition(mouse_pos);
+	sf::Mouse::setPosition(sf::Vector2i(window.getSize().x*0.5, window.getSize().y*0.5), window);
+	mouse_prev_pos = sf::Vector2i(window.getSize().x * 0.5, window.getSize().y * 0.5);
+	mouse_pos = sf::Vector2i(window.getSize().x * 0.5, window.getSize().y * 0.5);
 }
 
 void UnlockMouse(sf::RenderWindow& window) {
@@ -748,14 +860,7 @@ void UnlockMouse(sf::RenderWindow& window) {
 }
 
 int DirExists(const char *path) {
-	struct stat info;
-	if (stat(path, &info) != 0) {
-		return 0;
-	}
-	else if (info.st_mode & S_IFDIR) {
-		return 1;
-	}
-	return 0;
+	return (int)fs::exists(fs::path(path));
 }
 
 void FirstStart(Overlays* overlays)
@@ -774,7 +879,7 @@ void FirstStart(Overlays* overlays)
 
 	sf::Vector2f wsize = default_size;
 	sf::Vector2f vsize = default_view.getSize();
-	MenuBox mainmenu(1000, vsize.y*0.95f, wsize.x*0.025, wsize.y*0.025f);
+	MenuBox mainmenu(1000, vsize.y*0.95f, false, wsize.x*0.025, wsize.y*0.025f);
 	mainmenu.SetBackgroundColor(sf::Color::Transparent);
 	//make the menu static
 	mainmenu.static_object = true;
@@ -833,21 +938,24 @@ sf::Vector2i getResolution(int i)
 		return sf::Vector2i(7680, 4320);
 	case 13:
 		return sf::Vector2i(10240, 4320);
+	case 14:
+		return sf::Vector2i(240, 140);
 	}
 }
 
 
 void TakeScreenshot()
 {
+	taken_screenshot = true;
 	sf::Vector2i rendering_resolution = getResolution(SETTINGS.stg.rendering_resolution);
 	sf::Vector2i screenshot_resolution = getResolution(SETTINGS.stg.screenshot_resolution);
-	
+
 	scene_ptr->SetResolution(screenshot_resolution.x, screenshot_resolution.y);
 	renderer_ptr->ReInitialize(screenshot_resolution.x, screenshot_resolution.y);
 
 	scene_ptr->WriteRenderer(*renderer_ptr);
 	renderer_ptr->SetOutputTexture(*screenshot_txt);
-	
+
 	renderer_ptr->camera.SetMotionBlur(0);
 	renderer_ptr->Render();
 
@@ -857,6 +965,7 @@ void TakeScreenshot()
 	renderer_ptr->ReInitialize(rendering_resolution.x, rendering_resolution.y);
 	renderer_ptr->SetOutputTexture(*main_txt);
 	overlays_ptr->sound_screenshot.play();
+	screenshot_clock.restart();
 }
 
 void InitializeRendering(std::string config)
@@ -879,6 +988,8 @@ void InitializeRendering(std::string config)
 	renderer_ptr->camera.cross_eye = SETTINGS.stg.cross_eye;
 	renderer_ptr->camera.eye_separation = SETTINGS.stg.eye_separation;
 	renderer_ptr->camera.SetExposure(SETTINGS.stg.exposure);
+	renderer_ptr->camera.SetBokehRadius(SETTINGS.stg.DOF_max);
+	renderer_ptr->camera.SetFocus(SETTINGS.stg.DOF_focus);
 
 	scene_ptr->Refl_Refr_Enabled = SETTINGS.stg.refl_refr;
 	scene_ptr->Shadows_Enabled = SETTINGS.stg.shadows;
@@ -890,6 +1001,11 @@ void InitializeRendering(std::string config)
 	main_txt->create(rendering_resolution.x, rendering_resolution.y);
 	renderer_ptr->SetOutputTexture(*main_txt);
 	screenshot_txt->create(screenshot_resolution.x, screenshot_resolution.y);
+}
+
+void SetCameraFocus(float f)
+{
+	renderer_ptr->camera.SetFocus(f);
 }
 
 int music_id = 0;
@@ -998,6 +1114,7 @@ void TW_CALL ApplySettings(void *data)
 		overlays_ptr->SetAntTweakBar(window->getSize().x, window->getSize().y);
 	}
 
+	window->setFramerateLimit(SETTINGS.stg.fps_limit);
 	std::vector<std::string> langs = LOCAL.GetLanguages();
 	LOCAL.SetLanguage(langs[SETTINGS.stg.language]);
 
@@ -1033,46 +1150,44 @@ void TW_CALL InitialOK(void *data)
 	OpenMainMenu(scene_ptr, overlays_ptr);
 }
 
-int CUR_SET_BUTTON = -1;
-std::string status_text = "Nothing";
-
-void TW_CALL SetButton(void *data)
+void TW_CALL ResetEditorCamera(void* data)
 {
-	status_text = "Waiting for a keypress";
-	CUR_SET_BUTTON = *static_cast<int*>(data);
+	scene_ptr->ResetCamera();
 }
 
-void ApplyButton(int NUM, int MODE)
+void TW_CALL StartRecording(void* data)
 {
-	if (CUR_SET_BUTTON >= 0)
+	if (!recording)
 	{
-		if (CUR_SET_BUTTON < JOYSTICK_MOVE_AXIS_X && MODE == 0)//if keyboard
-		{
-			//TODO
-			CUR_SET_BUTTON = -1;
-			status_text = "Nothing";
-		}
-		else if (CUR_SET_BUTTON >= JOYSTICK_MOVE_AXIS_X && CUR_SET_BUTTON <= JOYSTICK_VIEW_AXIS_Y && MODE == 1)//if gamepad axis
-		{
-			SETTINGS.stg.control_mapping[CUR_SET_BUTTON] = NUM;
-			CUR_SET_BUTTON = -1;
-			status_text = "Nothing";
-		}
-		else if (MODE == 2)//if gamepad buttons
-		{
-			SETTINGS.stg.control_mapping[CUR_SET_BUTTON] = NUM;
-			CUR_SET_BUTTON = -1;
-			status_text = "Nothing";
-		}
+		StartRecording();
+	}
+	else
+	{
+		StopRecording2File("input_recording.bin");
 	}
 }
 
-KEYS key[num_of_keys] = { JOYSTICK_MOVE_AXIS_X, JOYSTICK_MOVE_AXIS_Y, JOYSTICK_VIEW_AXIS_X, JOYSTICK_VIEW_AXIS_Y };
+void TW_CALL StartReplay(void* data)
+{
+	if (!replay)
+	{
+		StartReplayFromFile("input_recording.bin");
+	}
+	else
+	{
+		StopReplay();
+	}
+}
+
+
+#if(DEBUG_MODE)
+	TwBar *debug;
+#endif
 
 void InitializeATBWindows(float* fps, float *target_fps)
 {
 	overlays_ptr->stats = TwNewBar("Statistics");
-	TwDefine(" GLOBAL help='Marble Marcher: Community Edition. \n Use F5 to take screenshots. \n Use F4 to open or close settings windows.' ");
+	TwDefine(" GLOBAL help='Marble Marcher: Community Edition. \nUse F4 to open or close settings windows. \nCtr+D to enable the debug menu' ");
 
 	std::map<int, std::string> level_list = scene_ptr->levels.getLevelNames();
 	std::vector<int> lvlnum = scene_ptr->levels.getLevelIds();
@@ -1140,9 +1255,12 @@ void InitializeATBWindows(float* fps, float *target_fps)
 
 	TwAddVarRW(overlays_ptr->settings, "Rendering resolution", Resolutions, &SETTINGS.stg.rendering_resolution, "group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Fullscreen", TW_TYPE_BOOLCPP, &SETTINGS.stg.fullscreen, "group='Rendering settings' help='You need to restart the game for changes to take effect'");
+	TwAddVarRW(overlays_ptr->settings, "Framerate limit", TW_TYPE_INT32, &SETTINGS.stg.fps_limit, "min=1 max=240 group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Cross-eye 3D", TW_TYPE_BOOLCPP, &SETTINGS.stg.cross_eye, "group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "3D eye separation", TW_TYPE_FLOAT, &SETTINGS.stg.eye_separation, "min=-2 step=0.05 max=2 group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Screenshot resolution", Resolutions, &SETTINGS.stg.screenshot_resolution, "group='Rendering settings'");
+	TwAddVarRW(overlays_ptr->settings, "Screenshot preview", TW_TYPE_BOOLCPP, &SETTINGS.stg.screenshot_preview, "group='Rendering settings'");
+	TwAddVarRW(overlays_ptr->settings, "Screenshot preview time", TW_TYPE_FLOAT, &SETTINGS.stg.preview_time, "min=0 step=0.01 max=5 group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Shader configuration", Configurations, &SETTINGS.stg.shader_config, "group='Rendering settings'");
 	TwAddVarRW(overlays_ptr->settings, "Multi Resolution Ray Marching scaling", TW_TYPE_INT32, &SETTINGS.stg.MRRM_scale, "min=2 max=8 group='Rendering settings' help='Don't touch this'");
 	TwAddVarRW(overlays_ptr->settings, "Shadow downscaling", TW_TYPE_INT32, &SETTINGS.stg.shadow_resolution, "min=1 max=8 group='Rendering settings'");
@@ -1160,6 +1278,8 @@ void InitializeATBWindows(float* fps, float *target_fps)
 	TwAddVarRW(overlays_ptr->settings, "Exposure", TW_TYPE_FLOAT, &SETTINGS.stg.exposure, "min=0 max=5 step=0.001 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Bloom Intensity", TW_TYPE_FLOAT, &SETTINGS.stg.bloom_intensity, "min=0 max=5 step=0.001 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Bloom Radius", TW_TYPE_FLOAT, &SETTINGS.stg.bloom_radius, "min=1 max=10 step=0.1 group='Graphics settings'");
+	TwAddVarRW(overlays_ptr->settings, "DOF Radius", TW_TYPE_FLOAT, &SETTINGS.stg.DOF_max, "min=0. max=100 step=0.1 group='Graphics settings'");
+	TwAddVarRW(overlays_ptr->settings, "DOF Default focus", TW_TYPE_FLOAT, &SETTINGS.stg.DOF_focus, "min=0. max=100 step=0.01 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Material gamma", TW_TYPE_FLOAT, &SETTINGS.stg.gamma_material, "min=0 max=4 step=0.1 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Sky gamma", TW_TYPE_FLOAT, &SETTINGS.stg.gamma_sky, "min=0 max=4 step=0.1 group='Graphics settings'");
 	TwAddVarRW(overlays_ptr->settings, "Camera gamma", TW_TYPE_FLOAT, &SETTINGS.stg.gamma_camera, "min=0 max=4 step=0.1 group='Graphics settings'");
@@ -1175,7 +1295,6 @@ void InitializeATBWindows(float* fps, float *target_fps)
 	TwAddVarRW(overlays_ptr->settings, "Play next level", TW_TYPE_BOOLCPP, &SETTINGS.stg.play_next, "group='Gameplay settings' help='Will play next level of a level pack if enabled'");
 	TwAddVarRW(overlays_ptr->settings, "Music volume", TW_TYPE_FLOAT, &SETTINGS.stg.music_volume, "min=0 max=100 step=1 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "FX volume", TW_TYPE_FLOAT, &SETTINGS.stg.fx_volume, "min=0 max=100 step=1 group='Gameplay settings'");
-	TwAddVarRW(overlays_ptr->settings, "Target FPS", TW_TYPE_FLOAT, target_fps, "min=24 max=144 step=1 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "Camera size", TW_TYPE_FLOAT, &scene_ptr->camera_size, "min=0 max=10 step=0.001 group='Gameplay settings'");
 	TwAddVarRW(overlays_ptr->settings, "Camera speed(Free mode)", TW_TYPE_FLOAT, &scene_ptr->free_camera_speed, "min=0 max=100 step=0.001 group='Gameplay settings'");
 
@@ -1183,13 +1302,8 @@ void InitializeATBWindows(float* fps, float *target_fps)
 
 	TwAddVarRW(overlays_ptr->settings, "Mouse sensitivity", TW_TYPE_FLOAT, &SETTINGS.stg.mouse_sensitivity, "min=0.001 max=0.02 step=0.001 group='Control settings'");
 	TwAddVarRW(overlays_ptr->settings, "Wheel sensitivity", TW_TYPE_FLOAT, &SETTINGS.stg.wheel_sensitivity, "min=0.01 max=0.5 step=0.01 group='Control settings'");
+	TwAddVarRW(overlays_ptr->settings, "Gamepad deadzone", TW_TYPE_FLOAT, &SETTINGS.stg.gamepad_deadzone, "min=0.0 max=0.9 step=0.01 group='Control settings'");
 	TwAddVarRW(overlays_ptr->settings, "Windows touch controls(experimental)", TW_TYPE_BOOLCPP, &SETTINGS.stg.touch_mode, "group='Control settings' help='Use a touchscreen'");
-	TwAddVarRO(overlays_ptr->settings, "Status", TW_TYPE_STDSTRING, &status_text, " label='STATUS' group='Control settings' ");
-
-	TwAddButton(overlays_ptr->settings, "AXIS_X_M", SetButton, &key[0], "group='Control settings' label='Joystick - choose X movement axis'  ");
-	TwAddButton(overlays_ptr->settings, "AXIS_Y_M", SetButton, &key[1], "group='Control settings' label='Joystick - choose Y movement axis'   ");
-	TwAddButton(overlays_ptr->settings, "AXIS_X_V", SetButton, &key[2], "group='Control settings' label='Joystick - choose X view axis' ");
-	TwAddButton(overlays_ptr->settings, "AXIS_Y_V", SetButton, &key[3], "group='Control settings' label='Joystick - choose Y view axis'  ");
 	TwAddButton(overlays_ptr->settings, "Apply4", ApplySettings, NULL, "group='Control settings' label='Apply settings'  ");
 	int barPos1[2] = { 16, 250 };
 
@@ -1214,6 +1328,9 @@ void InitializeATBWindows(float* fps, float *target_fps)
 
 	TwAddButton(overlays_ptr->level_editor, "Set Flag", FlagSet, NULL,
 		" label='Set Flag Position'  help='Click on the fractal to place' ");
+
+	TwAddButton(overlays_ptr->level_editor, "Reset camera", ResetEditorCamera, NULL,
+		" label='Reset camera' ");
 
 	TwAddVarRW(overlays_ptr->level_editor, "Flag Position", TW_TYPE_DIR3F, copy->end_pos.data(), "");
 	TwAddVarRW(overlays_ptr->level_editor, "Marble Position", TW_TYPE_DIR3F, copy->start_pos.data(), "");
@@ -1259,6 +1376,25 @@ void InitializeATBWindows(float* fps, float *target_fps)
 	TwAddVarRW(overlays_ptr->flaunch, "Language", Languages, &SETTINGS.stg.language, "");
 	TwAddButton(overlays_ptr->flaunch, "OK", InitialOK, NULL, " label='OK'  ");
 
+	debug = TwNewBar("Debug_bar");
+	TwAddButton(debug, "Record", StartRecording, NULL, " label='Record game input'  ");
+	TwAddButton(debug, "Playback", StartReplay, NULL, " label='Play recording'  ");
+	TwAddVarRW(debug, "Slow", TW_TYPE_BOOLCPP, &SETTINGS.stg.speed_regulation, " label='Speed regulation'");
+	TwAddVarRW(debug, "Target FPS", TW_TYPE_FLOAT, target_fps, "min=1 max=240 step=1");
+	TwAddVarRO(debug, "Replay frame", TW_TYPE_INT32, GetReplayFrame(), "");
+	TwAddVarRO(debug, "Replay mode", TW_TYPE_BOOLCPP, &replay, "");
+	TwAddVarRO(debug, "Recording mode", TW_TYPE_BOOLCPP, &recording, "");
+
+	for (int i = 0; i < sf::Joystick::AxisCount; i++)
+	{
+		TwAddVarRO(debug, ("axis" + num2str(i)).c_str(), TW_TYPE_FLOAT, &io_state.axis_value[i], "group='Gamepad state'");
+	}
+
+	TwDefine("Debug_bar visible=false color='0 0 255' alpha=240 size='420 160' valueswidth=200");
+
+	overlays_ptr->cheats = TwNewBar("Cheats");
+
+	TwDefine("Cheats visible=false color='0 0 0' alpha=255 size='500 200' valueswidth=300");
 	TwDefine(" GLOBAL fontsize=3 ");
 	TwDefine("LevelEditor visible=false size='420 350' color='0 80 230' alpha=210 label='Level editor' valueswidth=200");
 	TwDefine("FractalEditor visible=false size='420 350' color='0 120 200' alpha=210 label='Fractal editor' valueswidth=200");

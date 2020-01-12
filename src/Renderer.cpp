@@ -22,6 +22,7 @@ Renderer::Renderer()
 void Renderer::LoadConfigs(std::string config_file)
 {
 	std::vector<fs::path> configs = GetFilesInFolder(fs::path(config_file).parent_path().string(), ".cfg");
+	sort(configs.begin(), configs.end());
 	for (auto &file : configs)
 	{
 		rendering_configurations.push_back(file.filename().string());
@@ -29,12 +30,49 @@ void Renderer::LoadConfigs(std::string config_file)
 	config_folder = fs::path(config_file).parent_path().string();
 }
 
-void Renderer::Initialize(int w, int h, std::string config_f)
+void Renderer::ClearTextures()
 {
+	for (int i = 0; i < main_textures.size(); i++)
+	{
+		glDeleteTextures(1, &main_textures[i]);
+	}
+
+	for (int i = 0; i < shader_textures.size(); i++)
+	{
+		for (int j = 0; j < shader_textures[i].size(); j++)
+		{
+			if (!(i == shader_textures.size() - 1 && j == 0))
+			{
+				glDeleteTextures(1, &shader_textures[i][j]);
+			}
+		}
+	}
+
 	main_textures.clear();
 	shader_textures.clear();
 	global_size.clear();
+}
+
+void Renderer::ClearShaders()
+{
+	for (int i = 0; i < shader_pipeline.size(); i++)
+	{
+		shader_pipeline[i].Delete();
+	}
 	shader_pipeline.clear();
+}
+
+
+void Renderer::Initialize(int w, int h, std::string config_f)
+{
+	if (config_f == "")
+	{
+		config_f = config_file;
+	}
+
+	glUseProgram(0);
+	ClearShaders();
+	ClearTextures();
 
 	width = w;
 	height = h;
@@ -108,16 +146,15 @@ void Renderer::Initialize(int w, int h, std::string config_f)
 	}
 
 	illumination_texture = GenerateTexture(width, height);
-	weight_shader = ComputeShader(compute_folder + "/auto_exposure_weighting.glsl");
+	weight_shader = ComputeShader(compute_folder + "/auto_exposure/auto_exposure_weighting.glsl");
 
 	config.close();
 }
 
 void Renderer::ReInitialize(int w, int h)
 {
-	main_textures.clear();
-	shader_textures.clear();
-	global_size.clear();
+	glUseProgram(0);
+	ClearTextures();
 
 	width = w;
 	height = h;
@@ -144,6 +181,7 @@ void Renderer::ReInitialize(int w, int h)
 	std::vector<GLuint> stage_textures;
 	std::string shader_file;
 	vec2 global, tex_resolution;
+
 	while (std::getline(config, line))
 	{
 		if (line.substr(0, 1) != "#")
@@ -262,15 +300,12 @@ void Renderer::Render()
 		
 		shader_pipeline[i].setCamera(camera.GetGLdata());
 		shader_pipeline[i].Run(global_size[i]);
-
-		//unbind all of the textures
-		for (int k = 0; k < tex_id; k++)
-		{
-			glBindImageTexture(k, 0, 0, 0, 0, 0, 0);
-		}
 	}
 
 	camera.UpdateExposure(EvaluateAvgIllumination());
+
+	//increment frame number
+	camera.Fpp();
 }
 
 float Renderer::EvaluateAvgIllumination()
@@ -284,10 +319,6 @@ float Renderer::EvaluateAvgIllumination()
 		glBindImageTexture(2, illumination_texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 		weight_shader.setCamera(camera.GetGLdata());
 		weight_shader.Run(vec2(ceil(width / 8.f), ceil(height / 8.f)));
-		for (int k = 0; k < 3; k++)
-		{
-			glBindImageTexture(k, 0, 0, 0, 0, 0, 0);
-		}
 	}
 
 	if (main_textures.size() > 0)

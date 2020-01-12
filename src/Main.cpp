@@ -15,6 +15,8 @@
 * along with this program.If not, see <http://www.gnu.org/licenses/>.
 */
 
+
+
 #include <Gamemodes.h>
 #include "Level.h"
 #include "Res.h"
@@ -30,10 +32,6 @@
 #include <thread>
 #include <mutex>
 
-
-
-
-
 #ifdef _WIN32
 #include <Windows.h>
 #define ERROR_MSG(x) MessageBox(nullptr, TEXT(x), TEXT("ERROR"), MB_OK);
@@ -42,8 +40,8 @@
 #endif
 
 //Graphics settings
-static bool VSYNC = true;
 bool TOUCH_MODE = false;
+bool DEBUG_BAR = false;
 
 #if defined(_WIN32)
 int WinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR lpCmdLine, int nCmdShow) {
@@ -174,14 +172,26 @@ int main(int argc, char *argv[]) {
 			touch_pxy[i] = touch_xy[i];
 		}
 
+		for (int i = 0; i < sf::Keyboard::KeyCount; i++)
+		{
+			io_state.key_press[i] = false;
+		}
+
+		for (int i = 0; i < sf::Joystick::AxisCount; i++)
+		{
+			io_state.axis_moved[i] = false;
+		}
+
+		for (int i = 0; i < sf::Joystick::ButtonCount; i++)
+		{
+			io_state.button_pressed[i] = false;
+		}
+
+
+
 		while (window.pollEvent(event)) 
 		{
-			bool handled = overlays.TwManageEvent(&event);
-
-			for (int i = 0; i < sf::Keyboard::KeyCount; i++)
-			{
-				io_state.key_press[i] = false;
-			}
+			bool handled = overlays.TwManageEvent(&event);	
 
 			if (event.type == sf::Event::Closed) 
 			{
@@ -260,22 +270,41 @@ int main(int argc, char *argv[]) {
 
 				if (event.type == sf::Event::JoystickButtonPressed)
 				{
-					ApplyButton(event.joystickButton.button, 2);
-					gamepad_state.buttons[event.joystickButton.button] = true;
+					io_state.buttons[event.joystickButton.button] = true;
+					io_state.button_pressed[event.joystickButton.button] = true;
+
+					if (event.joystickButton.button == SETTINGS.stg.control_mapping[JOYSTICK_RESTART])
+					{
+						if (game_mode == PLAYING) {
+							scene.ResetLevel();
+						}
+					}
+					else if (event.joystickButton.button == SETTINGS.stg.control_mapping[JOYSTICK_EXIT])
+					{
+						if (game_mode == PLAYING) {
+							PauseGame(window, &overlays, &scene);
+						}
+					} 
+					else if (event.joystickButton.button == SETTINGS.stg.control_mapping[JOYSTICK_SCREENSHOT])
+					{
+						TakeScreenshot();
+					}
 				}
 				else if (event.type == sf::Event::JoystickButtonReleased)
 				{
-					gamepad_state.buttons[event.joystickButton.button] = false;
+					io_state.buttons[event.joystickButton.button] = false;
 				}
 				else if (event.type == sf::Event::JoystickMoved)
 				{
-					ApplyButton(event.joystickButton.button, 1);
-					gamepad_state.axis_value[event.joystickMove.axis] = event.joystickMove.position;
+					io_state.axis_value[event.joystickMove.axis] = 
+						(abs(event.joystickMove.position)<SETTINGS.stg.gamepad_deadzone)?0.f:event.joystickMove.position;
+					io_state.axis_moved[event.joystickMove.axis] = true;
 				}
 				else if (event.type == sf::Event::KeyPressed)
 				{
 					const sf::Keyboard::Key keycode = event.key.code;
 					all_keys[keycode] = true;
+					io_state.isKeyPressed = true;
 					io_state.keys[keycode] = true;
 					io_state.key_press[keycode] = true;  
 					if (event.key.code < 0 || event.key.code >= sf::Keyboard::KeyCount) { continue; }
@@ -293,12 +322,17 @@ int main(int argc, char *argv[]) {
 						credits_music.stop();
 						scene.StartNextLevel();
 					}
+					else if (keycode == sf::Keyboard::D && event.key.control)
+					{
+						DEBUG_BAR = !DEBUG_BAR;
+						TwDefine((std::string("Debug_bar visible=") + ((DEBUG_BAR) ? "true" : "false")).c_str());
+					}
 					else if (keycode == sf::Keyboard::Escape)
 					{
 						if (game_mode == MAIN_MENU)
 						{
-							window.close();
-							break;
+							if(NumberOfObjects() < 2)
+								ConfirmExit(&scene, &overlays);
 						}
 						else if (game_mode == CONTROLS || game_mode == LEVELS) 
 						{
@@ -320,19 +354,31 @@ int main(int argc, char *argv[]) {
 						{
 							//if no interface objects created
 							if (NoObjects())
-							{
 								ConfirmEditorExit(&scene, &overlays);
-							}
-							else if(get_glob_obj(focused).action_time < 0.f)//remove confirm window
-							{
-								RemoveGlobalObject(focused);
-							}
 						}
 					}
-					else if (keycode == sf::Keyboard::R) 
+					else if (keycode == SETTINGS.stg.control_mapping[RESTART])
 					{
 						if (game_mode == PLAYING) {
 							scene.ResetLevel();
+						}
+					}
+					else if (keycode == SETTINGS.stg.control_mapping[PAUSE])
+					{
+						if (game_mode == PLAYING) {
+							PauseGame(window, &overlays, &scene);
+						}
+					}
+					else if (keycode == SETTINGS.stg.control_mapping[ZOOM_IN])
+					{
+						if (game_mode == PLAYING) {
+							mouse_wheel += 1.f;
+						}
+					}
+					else if (keycode == SETTINGS.stg.control_mapping[ZOOM_OUT])
+					{
+						if (game_mode == PLAYING) {
+							mouse_wheel -= 1.f;
 						}
 					}
 					else if (keycode == sf::Keyboard::F1) 
@@ -342,7 +388,7 @@ int main(int argc, char *argv[]) {
 							scene.EnbaleCheats();
 						}
 					}
-					else if (keycode == sf::Keyboard::F5) 
+					else if (keycode == SETTINGS.stg.control_mapping[SCREENSHOT]) 
 					{ 
 						TakeScreenshot();
 					} 
@@ -472,39 +518,42 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-		int touches = 0;
-		for (int i = 0; i < n_touch; i++)
-		{
-			if (touched[i])
-			{
-				touches++;
-				//touch state
-				touch_xy[i] = sf::Touch::getPosition(i, window);
-				touch_circle[i].setPosition(touch_xy[i].x - touch_circle[i].getRadius(), touch_xy[i].y - touch_circle[i].getRadius());
-			}
-		}
 
-		if (touches == 3)
+		if (TOUCH_MODE)
 		{
-			if (game_mode == PLAYING)
+			int touches = 0;
+			for (int i = 0; i < n_touch; i++)
 			{
-				PauseGame(window, &overlays, &scene);
-			}
-			else if (game_mode == LEVEL_EDITOR)
-			{
-				//if no interface objects created
-				if (NoObjects())
+				if (touched[i])
 				{
-					ConfirmEditorExit(&scene, &overlays);
-				}
-				else if (get_glob_obj(focused).action_time < 0.f)//remove confirm window
-				{
-					RemoveGlobalObject(focused);
+					touches++;
+					//touch state
+					touch_xy[i] = sf::Touch::getPosition(i, window);
+					touch_circle[i].setPosition(touch_xy[i].x - touch_circle[i].getRadius(), touch_xy[i].y - touch_circle[i].getRadius());
 				}
 			}
-		}
-		
 
+			if (touches == 3)
+			{
+				if (game_mode == PLAYING)
+				{
+					PauseGame(window, &overlays, &scene);
+				}
+				else if (game_mode == LEVEL_EDITOR)
+				{
+					//if no interface objects created
+					if (NoObjects())
+					{
+						ConfirmEditorExit(&scene, &overlays);
+					}
+					else if (get_glob_obj(focused).action_time < 0.f)//remove confirm window
+					{
+						RemoveGlobalObject(focused);
+					}
+				}
+			}
+		}
+	
 		//Check if the game was beat
 		if (scene.GetMode() == Scene::FINAL && game_mode != CREDITS) {
 			game_mode = CREDITS;
@@ -547,8 +596,16 @@ int main(int argc, char *argv[]) {
 						  (all_keys[SETTINGS.stg.control_mapping[RIGHT]] ? 1.0f : 0.0f);
 			}
 			//Collect gamepad input
-			force_y -= gamepad_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_MOVE_AXIS_Y]];
-			force_x += gamepad_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_MOVE_AXIS_X]];
+			force_y -= io_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_MOVE_AXIS_Y]];
+			force_x += io_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_MOVE_AXIS_X]];
+			 
+			InputRecord record = GetRecord();
+
+			if (replay)
+			{
+				force_x = record.move_x;
+				force_y = record.move_y;
+			}
 			scene.UpdateMarble(force_x, force_y);
 			scene.free_camera_speed *= 1 + mouse_wheel * 0.05;
 
@@ -582,45 +639,73 @@ int main(int argc, char *argv[]) {
 
 			float cam_lr = float(-mouse_delta.x) * ms;
 			float cam_ud = float(-mouse_delta.y) * ms;
-			cam_ud -= 0.05* ms *gamepad_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_VIEW_AXIS_Y]];
-			cam_lr -= 0.05* ms *gamepad_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_VIEW_AXIS_X]];
-			const float cam_z = mouse_wheel * SETTINGS.stg.wheel_sensitivity;
+			cam_ud -= 0.05* ms *io_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_VIEW_AXIS_Y]];
+			cam_lr -= 0.05* ms *io_state.axis_value[SETTINGS.stg.control_mapping[JOYSTICK_VIEW_AXIS_X]];
+
+			cam_ud +=  5*ms * ( (all_keys[SETTINGS.stg.control_mapping[VIEWUP]] ? -1.0f : 0.0f) +
+						    	(all_keys[SETTINGS.stg.control_mapping[VIEWDOWN]] ? 1.0f : 0.0f) );
+			cam_lr +=  5*ms * ((all_keys[SETTINGS.stg.control_mapping[VIEWRIGHT]] ? -1.0f : 0.0f) +
+								(all_keys[SETTINGS.stg.control_mapping[VIEWLEFT]] ? 1.0f : 0.0f));
+			
+			float cam_z = mouse_wheel * SETTINGS.stg.wheel_sensitivity;
+
+			if (replay)
+			{
+				cam_lr = record.view_x;
+				cam_ud = record.view_y;
+				cam_z = record.cam_z;
+				mouse_clicked = record.mouse_clicked;
+			}
 
 			scene.UpdateCamera(cam_lr, cam_ud, cam_z, mouse_clicked);
+
+			SaveRecord(force_x, force_y, cam_lr, cam_ud, cam_z, mouse_clicked);
 		}
 
 		bool skip_frame = false;
-		if (lag_ms >= 1000.0f / target_fps) {
+		if ((lag_ms >= 1000.0f / target_fps) && SETTINGS.stg.speed_regulation) {
 			//If there is too much lag, just do another frame of physics and skip the draw
 			lag_ms -= 1000.0f / target_fps;
 			skip_frame = true;
 		}
 		else 
 		{
-			window.setVerticalSyncEnabled(VSYNC);
-
 			//Update the shader values
 			if (game_mode != FIRST_START)
 			{
-				scene.WriteRenderer(rend);
-				rend.camera.SetAspectRatio((float)window.getSize().x / (float)window.getSize().y);
-				rend.SetOutputTexture(main_txt);
+				if (!(taken_screenshot && SETTINGS.stg.screenshot_preview))
+				{
+					scene.WriteRenderer(rend);
+					rend.camera.SetAspectRatio((float)window.getSize().x / (float)window.getSize().y);
+					rend.SetOutputTexture(main_txt);
+					//Draw to the render texture
+					rend.Render();
+
+					//Draw render texture to main window
+					sf::Sprite sprite(main_txt);
+					sprite.setScale(float(window.getSize().x) / float(rend.variables["width"]),
+						float(window.getSize().y) / float(rend.variables["height"]));
+					window.draw(sprite);
+				}
+				else
+				{
+					//Draw screenshot preview
+					sf::Sprite sprite(screenshot_txt);
+					sf::Vector2u ssize = screenshot_txt.getSize();
+					float scale = min(float(window.getSize().x) / float(ssize.x),
+						float(window.getSize().y) / float(ssize.y));
+					vec2 pos = vec2(window.getSize().x - ssize.x*scale, window.getSize().y - ssize.y*scale)*0.5f;
+					sprite.setScale(scale, scale);
+					sprite.setPosition(pos.x, pos.y);
+					window.draw(sprite);
+
+					const float s = screenshot_clock.getElapsedTime().asSeconds();
+					if (s > SETTINGS.stg.preview_time)
+					{
+						taken_screenshot = false;
+					}
+				}
 			}
-
-
-			//Draw the fractal	
-			if (game_mode != FIRST_START)
-			{
-				//Draw to the render texture
-				rend.Render();
-
-				//Draw render texture to main window
-				sf::Sprite sprite(main_txt);
-				sprite.setScale(float(window.getSize().x) / float(rend.variables["width"]),
-					float(window.getSize().y) / float(rend.variables["height"]));
-				window.draw(sprite);
-			}
-		
 		}
 
 		//Draw text overlays to the window
@@ -656,6 +741,7 @@ int main(int argc, char *argv[]) {
 		io_state.dt = prev_s;
 		io_state.time += io_state.dt;
 		UpdateAllObjects(&window, io_state);
+		io_state.isKeyPressed = false;
 		window.setView(default_window_view);
 		
 		if (!skip_frame) {

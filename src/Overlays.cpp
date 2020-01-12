@@ -181,7 +181,7 @@ void Overlays::DrawCredits(sf::RenderWindow& window, bool fullrun, int t) {
   std::wstring txt = LOCAL["CongratsEnd"];
   sf::Text text;
   MakeText(txt, 100, 100, 44, sf::Color::White, text);
-  text.setLineSpacing(1.3f);
+  //text.setLineSpacing(1.3f);
   window.draw(text);
 
   if (fullrun) {
@@ -197,7 +197,7 @@ void Overlays::DrawMidPoint(sf::RenderWindow& window, bool fullrun, int t) {
   std::wstring txt = LOCAL["CongratsMid"];
   sf::Text text;
   MakeText(txt, 205, 100, 44, sf::Color::White, text);
-  text.setLineSpacing(1.3f);
+  //text.setLineSpacing(1.3f);
   window.draw(text);
 
   if (fullrun) {
@@ -215,7 +215,7 @@ void Overlays::DrawLevels(sf::RenderWindow& window) {
 
 void Overlays::DrawSumTime(sf::RenderWindow& window, int t) {
   sf::Text text;
-  MakeTime(t, 10, 680, 32, sf::Color::White, text);
+  MakeTime(t, 10, 10, 32, sf::Color::White, text);
   window.draw(text);
 }
 
@@ -237,7 +237,7 @@ template<class T> void Overlays::MakeText(T str, float x, float y, float size, c
   text.setString(str);
   text.setFont(mono ? LOCAL("mono"): LOCAL("default"));
   text.setCharacterSize(int(size * draw_scale));
-  text.setLetterSpacing(0.8f);
+  //text.setLetterSpacing(0.8f);
   text.setPosition((x - 2.0f) * draw_scale, (y - 2.0f) * draw_scale);
   text.setFillColor(color);
   text.setOutlineThickness(3.0f * draw_scale);

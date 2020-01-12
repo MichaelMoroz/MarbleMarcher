@@ -23,10 +23,12 @@
 #include <AntTweakBar.h>
 namespace fs = std::filesystem;
 
-const int num_of_keys = 14;
+const int num_of_keys = 20;
 enum KEYS {
 	UP, DOWN, LEFT, RIGHT, VIEWUP, VIEWDOWN, VIEWLEFT, VIEWRIGHT, 
-	JOYSTICK_MOVE_AXIS_X, JOYSTICK_MOVE_AXIS_Y, JOYSTICK_VIEW_AXIS_X, JOYSTICK_VIEW_AXIS_Y, JOYSTICK_EXIT, JOYSTICK_SCREENSHOT
+	PAUSE, RESTART, SCREENSHOT, ZOOM_IN, ZOOM_OUT,
+	JOYSTICK_MOVE_AXIS_X, JOYSTICK_MOVE_AXIS_Y, JOYSTICK_VIEW_AXIS_X, JOYSTICK_VIEW_AXIS_Y, 
+	JOYSTICK_EXIT, JOYSTICK_SCREENSHOT, JOYSTICK_RESTART
 };
 
 struct MainSettings
@@ -72,15 +74,33 @@ struct MainSettings
 	float auto_exposure_speed; 
 	float auto_exposure_target;
 	bool touch_mode;
+
 	std::array<int, num_of_keys> control_mapping;
+	
+	//cheeets
+	bool speed_regulation;
+	int fps_limit;
+
+	bool screenshot_preview;
+	float preview_time;
+	float gamepad_deadzone;
+
+	float DOF_max, DOF_focus;
 };
 
 extern TwEnumVal resolutions[];
-static const std::array<int, num_of_keys> default_control_mapping = { sf::Keyboard::W, sf::Keyboard::S, sf::Keyboard::A, sf::Keyboard::D,
-														sf::Keyboard::Up, sf::Keyboard::Down, sf::Keyboard::Left, sf::Keyboard::Right,
-														1, 2, 3, 4, 1, 2};
-static const MainSettings default_settings = { 6,
-	10, 5, 2, 3, 0, true, true, true, 0.06, 9, 2.2, 70, 20, 20, 0.005, 0.2, false, 0.005, 0.45, 0, false, true, 0, true, 0.7, 0.6, 2.2, false, -0.02, 0.2, 0.55, false, default_control_mapping };
+static const std::array<int, num_of_keys> default_control_mapping =
+{ sf::Keyboard::W, sf::Keyboard::S, sf::Keyboard::A, sf::Keyboard::D,
+  sf::Keyboard::Up, sf::Keyboard::Down, sf::Keyboard::Left, sf::Keyboard::Right,
+  sf::Keyboard::P, sf::Keyboard::R, sf::Keyboard::F5, sf::Keyboard::Num1, sf::Keyboard::Num2,
+	1, 2, 3, 4, 1, 2, 3};
+//an incomprehensible wall of default parameters 
+static const MainSettings default_settings = 
+{ 
+	6, 10, 6, 3, 5, 0, true, true, true, 0.08, 9, 2.2, 70, 20, 20, 0.005, 0.2, false,
+	0.005, 0.45, 0, false, true, 0, true, 0.5, 0.75, 2.2, false, -0.02, 0.2, 0.55, 
+	false, default_control_mapping, true, 60, true, 1.f, 0.1f, 15.f, 4.5f
+};
 
 
 class AllSettings

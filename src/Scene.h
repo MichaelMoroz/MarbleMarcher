@@ -28,6 +28,17 @@
 #define FOCAL_DIST 1.73205080757
 
 extern sf::Music *current_music;
+extern bool recording;
+extern bool replay;
+
+struct InputRecord
+{
+	float move_x, move_y;
+	float view_x, view_y;
+	float cam_z;
+	bool mouse_clicked;
+};
+
 
 class Scene {
 public:
@@ -119,8 +130,10 @@ public:
 
   void StartNewGame();
   void StartNextLevel();
+  void ReplayLevel(int level);
   void StartSingle(int level);
   void StartLevelEditor(int level);
+  void ResetCamera();
   void StartDefault();
   void ResetLevel();
   void ResetCheats();
@@ -228,3 +241,12 @@ private:
   bool            zoom_to_scale;
   float			  gravity;
 };
+
+int * GetReplayFrame();
+
+void StartRecording();
+
+void StopRecording2File(std::string path, bool save = true);
+
+void StartReplayFromFile(std::string path);
+void StopReplay();

@@ -40,6 +40,136 @@ static const float ground_ratio = 1.15f;
 static const int mus_switches[num_level_music] = {9, 15, 21, 24};
 static const int num_levels_midpoint = 15;
 
+int cur_frame = 0;
+bool recording = false;
+bool replay = false;
+
+std::vector<InputRecord> recording_data;
+std::fstream input_recording;
+
+int* GetReplayFrame()
+{
+	return &cur_frame;
+}
+
+void StartRecording()
+{
+	if (!replay)
+	{
+		recording_data.clear();
+		recording = true;
+	}
+}
+
+void StopRecording2File(std::string path, bool save)
+{
+	if (recording)
+	{
+		recording = false;
+		if (save)
+		{
+			input_recording.open(path, std::ios::out | std::ios::binary | std::ios::trunc);
+
+			if (!input_recording.is_open())
+			{
+				//DisplayError("Error opening record file");
+			}
+			else
+			{
+				for (auto &input : recording_data)
+				{
+					input_recording.write((char*)&input, sizeof(InputRecord));
+				}
+			}
+
+			input_recording.close();
+		}
+
+		recording_data.clear();
+	}
+}
+
+void StartReplayFromFile(std::string path)
+{
+	if (!recording)
+	{
+		recording_data.clear();
+		replay = true;
+		input_recording.open(path, std::ios::in | std::ios::binary);
+
+		if (!input_recording.is_open())
+		{
+			replay = false;
+			//DisplayError("Error opening record file");
+		}
+		else
+		{
+			input_recording.seekg(0, input_recording.beg);
+			InputRecord rec;
+			while (input_recording)
+			{
+				input_recording.read((char*)&rec, sizeof(InputRecord));
+				recording_data.push_back(rec);
+			}
+			cur_frame = 0;
+		}
+
+		input_recording.close();
+	}
+}
+
+void StopReplay()
+{
+	if (!recording)
+	{
+		replay = false;
+		recording_data.clear();
+	}
+}
+
+
+void SaveRecord(float mx, float my, float vx, float vy, float cz, bool mc)
+{
+	if (recording && !replay)
+	{
+		InputRecord rec;
+		rec.move_x = mx;
+		rec.move_y = my;
+		rec.view_x = vx;
+		rec.view_y = vy;
+		rec.cam_z = cz;
+		rec.mouse_clicked = mc;
+
+		recording_data.push_back(rec);
+	}
+}
+
+void AddResetPadding()
+{
+	for (int i = 0; i < frame_deorbit; i++)
+	{
+		SaveRecord(0, 0, 0, 0, 0, 0);
+	}
+}
+
+InputRecord GetRecord()
+{
+	if (replay)
+	{
+		if (cur_frame >= recording_data.size())
+		{
+			cur_frame = 0;
+			replay = false;
+			recording_data.clear();
+			return InputRecord();
+		}
+		return recording_data[cur_frame++];
+	}
+	return InputRecord();
+}
+
+
+
 sf::Music *current_music = nullptr;
 
 void Scene::SetCurrentMusic(sf::Music *new_music)
@@ -225,6 +355,7 @@ void Scene::StartNewGame() {
   is_fullrun = true;
   SetLevel(0);
   HideObjects();
+  StartRecording();
   SetMode(ORBIT);
 }
 
@@ -236,6 +367,7 @@ void Scene::StartNextLevel() {
 		SetLevel(level_copy.link_level);
 		HideObjects();
 		SetMode(ORBIT);
+		StartRecording();
 	}
 	else
 	{
@@ -250,7 +382,20 @@ void Scene::StartNextLevel() {
     SetLevel(cur_level + 1);
     HideObjects();
     SetMode(ORBIT);
+	StartRecording();
   }
+}
+
+void Scene::ReplayLevel(int level)
+{
+	StopRecording2File("", 0);
+	play_single = true;
+	is_fullrun = false;
+	ResetCheats();
+	SetLevel(level);
+	StartReplayFromFile(std::string(recordings_folder) + "/" + ConvertSpaces2_(level_copy.txt) + ".bin");
+	HideObjects();
+	SetMode(ORBIT);
 }
 
 void Scene::StartSingle(int level) {
@@ -258,6 +403,7 @@ void Scene::StartSingle(int level) {
   is_fullrun = false;
   ResetCheats();
   SetLevel(level);
+  StartRecording();
   HideObjects();
   SetMode(ORBIT);
 }
@@ -286,6 +432,13 @@ void Scene::StartLevelEditor(int level)
 	free_camera = true;
 }
 
+void Scene::ResetCamera()
+{
+	SetMode(DEORBIT);
+	timer = frame_deorbit;
+	free_camera_speed = 1.f;
+}
+
 void Scene::StartDefault()
 {
 	cur_level = -1;
@@ -294,6 +447,9 @@ void Scene::StartDefault()
 
 void Scene::ResetLevel() {
   if (cam_mode == MARBLE || play_single) {
+    StopRecording2File("", false);
+	StartRecording();
+	AddResetPadding();
     SetMode(DEORBIT);
     timer = frame_deorbit;
     frac_params = level_copy.params;
@@ -442,9 +598,11 @@ void Scene::UpdateMarble(float dx, float dy) {
       const float fz = marble_pos.z() - flag_pos.z();
       if (fx*fx + fz*fz < 6 * marble_rad*marble_rad) {
         final_time = timer;
+		bool best = false;
         if (!enable_cheats) {
-          levels.UpdateScore(cur_level, final_time/60.f);
+			best = levels.UpdateScore(cur_level, final_time/60.f);
         }
+		StopRecording2File(std::string(recordings_folder) + "/" + ConvertSpaces2_(level_copy.txt) + ".bin", best);
         SetMode(GOAL);
         sound_goal.play();
       }
@@ -799,7 +957,6 @@ void Scene::WriteRenderer(Renderer & rd)
 	rd.camera.SetDirZ(dirz);
 	rd.camera.SetCameraSize(camera_size*level_copy.marble_rad / 0.035f);
 	rd.camera.eye_separation = SETTINGS.stg.eye_separation*level_copy.marble_rad / 0.035f;
-
 	//write all the uniform values to the rendering pipeline
 	for (auto &shader : rd.shader_pipeline)
 	{
